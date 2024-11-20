@@ -1,0 +1,708 @@
+---
+title: 'HTTP 핵심과 직접 구현을 통한 개인적인 정리'
+date: '2024-11-20'
+tags: ['HTTP', 'Network', 'Protocol']
+draft: false
+summary: 'HTTP의 개념과 동작 원리, 그리고 Spring과의 비교'
+---
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+## HTTP 정리하는 목적
+
+- `“HTTP가 뭘 하는 거냐?”` 라는 질문에 답변 할 수 있기.
+- HTTP를 직접 `구현` 해보기.
+  - 구현하며, 몰랐던 부분에 대해서 정리하기.
+- 스프링이랑 비교 해보면서 자바 코드로는 어떻게 하는 건지 고민하기.
+  - “스프링은 전부 해주던데, 여기에서는 뭐가 다른지 고민하기”
+
+## HTTP 개념
+
+HTTP는 `클라이언트 - 서버` 모델을 기반으로 하는 `프로토콜`이다. 이 모델에서 클라이언트는 서버에 요청을 보내고, 서버는 해당 요청에 대한 응답을 돌려준다. HTTP는 주로 웹 페이지, 이미지, JSON 데이터를 주고 받을 때 사용한다.
+
+- `클라이언트:` 요청을 보내는 쪽
+- `서버:` 요청을 받아서 처리하고 응답을 돌려주는 쪽
+
+### HTTP 요청 (Request)
+
+- 메서드 (Method): 클라이언트가 서버에게 어떤걸 하기 원하는지 나타낸다.
+  - `GET:` 리소스를 요청(데이터를 가져오는 용도)
+  - 리소스를 조회할 때 사용, 서버에서 데이터를 읽는 용도이며, 데이터를 변경하지 않는다.
+  - `POST:` 서버에 데이터를 전송 (새로운 데이터를 생성)
+  - 서버에 데이터를 전송하고, 보통 리소스를 생성할 때 사용한다.
+  - `PUT:` 서버에 데이터를 업데이트
+  - 리소스를 전체적으로 업데이트할 때 사용한다.
+  - `DELETE:` 리소스를 삭제
+  - 서버에서 리소스를 삭제할 때 사용한다.
+- URL: 요청할 리소스의 경로
+- 헤더 (Header): 추가적인 인증 정보, 데이터 타입 등등을 포함한다.
+- 본문 (Body): 주로 post, put 요청에서 서버에 보내는 데이터가 담긴다.
+
+```java
+GET /hello HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+```
+
+### HTTP 응답 (Response)
+
+서버는 요청을 처리한 후 응답을 보낸다.
+
+- 상태 코드 (Status Code): 요청의 처리 결과를 나타낸다.
+  - `200 OK:` 요청이 성공적으로 처리된다.
+  - `3xx (리다이렉션)`: 요청한 리소스가 다른 곳으로 이동한다.
+  - `404 Not Found:` 요청한 리소스를 찾을 수 없다
+  - `500 Internal Server  Error:` 서버 오류
+- 헤더 (Header): 응답에 대한 추가 정보를 포함한다.
+  - e.g.) 콘텐츠 타입, 인코딩 방식
+- 본문 (Body): 요청에 대한 실제 데이터 (JSON, XML 등)
+
+```java
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "message": "Hello, world!"
+}
+```
+
+### HTTP / HTTPS 가 뭔가요?
+
+`HTTP:` 데이터를 평문으로 전송하는 프로토콜로, 보안이 취약하다.
+
+`HTTPS:` HTTP + 암호화로, 클라이언트와 서버 간의 통신이 암호화되어 안전한 방식으로 데이터를 주고 받을 수 있다. HTTPS는 기본적으로 보안을 위해 서비스에서 사용해야 하는 표준이다.
+
+### “HTTP가 뭔가요?” 질문 답하기
+
+<aside>
+    📌
+
+    HTTP는 클라이언트와 서버가 데이터를 주고받기 위한 `통신 프로토콜`이다. 주로 `웹 브라우저가 서버에 요청`을 보내고, `서버가 그에 대한 응답을 반환`하는 방식으로 동작한다. `무상태 프로토콜`이라, 요청마다 독립적으로 처리되고, GET이나 POST 같은 메서드로 데이터를 조회하거나 전송할 수 있다.
+
+</aside>
+
+### 무상태 프로토콜이 뭔가요?
+
+서버가 각 클라이언트 요청 간의 상태를 유지하지 않는 프로토콜을 말한다. 즉, `서버는 각 요청을 독립적으로 처리`하며, `이전 요청에 대한 정보를 기억하지 않는다`
+
+- e.g.) 클라이언트가 A 요청을 보내고, 그 다음 B 요청을 보내더라도, 서버는 A 요청과 B 요청이 연관되어 있다는 `사실을 알 수 없다`는 뜻이다.
+- 만약 상태 정보를 유지하고 싶다면, 클라이언트가 `매 요청마다 필요한 정보` 즉, `사용자 인증 정보 같은 것을 서버`에 보내야 하는 것이다.
+
+<aside>
+    📌
+
+    상태를 유지하기 위해 쿠키, 세션, JWT 같은 기술을 추가적으로 사용해 클라이언트와 서버간의 상태를 추적할 수 있다.
+
+</aside>
+
+### 무상태 프로토콜의 장/단점이 뭔가요?
+
+- `장점:`확장성이 좋다는 것이다. 서버가 각 클라이언트의 상태를 기억하지 않아도 되므로, 요청 처리에 필요한 리소스가 적다
+- `단점:` 클라이언트가 필요한 모든 데이터를 요청에 담아 보내야 하므로, 요청이 더 복잡해질 수 있다.
+
+### Socket이 뭔가요?
+
+<aside>
+    📌
+
+    네트워크 연결을 나타내는 객체로,
+
+    클라이언트와 서버 간 데이터를 주고받기 위한 통로이다.
+
+    **`쉽게 말해**:` 소켓은 전화 통화에서 전화기 같은 역할을 한다.
+
+    전화기로 상대방(서버)에게 전화를 걸어서 연결을 설정하는 것이다.
+
+</aside>
+
+소켓은 네트워크에서 `클라이언트와 서버 간의 통신을 위한 엔드포인트`를 나타낸다. 네트워크 상에서 두 컴퓨터가 서로 데이터를 주고받기 위해서는 `양쪽에 소켓`이 있어야 한다는 것이다.
+
+- `소켓의 역할은?`
+  - `연결 설정:` 클라이언트와 서버 간에 데이터를 주고받을 통로를 만드는 역할을 한다.
+  - `데이터 송수신:` 소켓을 통해 데이터를 읽고 쓸 수 있어야 한다. 클라이언트는 소켓을 이용해 서버에 요청을 보내고, 서버는 응답을 보낸다.
+- `소켓의 구성 요소?`
+  - `IP 주소 (host)` : 통신할 대상의 네트워크 주소를 지정한다.
+  - `포트 번호 (port)` : 하나의 IP 주소에 여러 서버를 동시에 실행할 수 있기 때문에, 각각의 서비스는 고유한 포트 번호를 사용하여 통신한다.
+
+<aside>
+    📌
+
+    평소 사용하는 `localhost:8080` 에 대해 설명하자면, Socket 객체는 `localhost:8080` 에 연결을 시도하려는 클라이언트를 생성한다.
+
+    즉, `IP 주소 localhost`와 `포트 번호 8080`으로 특정 서버에 연결한다.
+
+</aside>
+
+## 해결
+
+### 요청을 해서 응답을 받는 클래스 이다.
+
+- 클라이언트(소켓)가 `localhost:8080` 서버에 `HTTP GET` 요청을 보내고,
+서버로부터 응답을 받은 후 그 결과를 출력하는 프로그램이다.
+
+```java
+
+import java.io.IOException;
+import java.net.Socket;
+
+/**
+ * 요청을 하는 서버는 `source server`다. 요청을 받는 서버는 `target server`다.
+ * <p>
+ * 1. 첫 번째는 요청을 해서 응답을 받는 `source server`를 생성한다.ex : 민석님 서버(8081) <-> 스프링 서버(GET http://localhost:8080/hello) *
+ */
+public class SourceServer {
+    /**
+     * 요청을 해서 응답을 받는 `source server`를 생성 로직
+     */
+    public static void main(String[] args) {
+        String host = "localhost";
+        int port = 8080;
+
+        // 고정된 HTTP 요청 메시지
+        String httpRequest = """
+                GET /hello HTTP/1.1
+                Host: localhost:8080
+                """;
+
+        try (Socket socket = new Socket(host, port);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            System.out.println("서버에 연결되었습니다. 요청을 보냅니다.");
+
+            // 요청 전송
+            out.print(httpRequest);
+            out.flush();
+
+            System.out.println("요청을 보냈습니다. 응답을 기다리는 중...");
+
+            // 응답 수신 및 출력
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                response.append(line).append("\n");
+                if (line.isEmpty()) {
+                    // 빈 줄(헤더의 끝)을 만나면 본문만 따로 읽기
+                    char[] buffer = new char[1024];
+                    int charsRead;
+                    while ((charsRead = in.read(buffer)) != -1) {
+                        response.append(buffer, 0, charsRead);
+                    }
+                    break;
+                }
+            }
+
+            System.out.println("서버 응답:\n" + response);
+
+        } catch (Exception e) {
+            System.out.println("알 수 없는 오류");
+        }
+    }
+}
+
+```
+
+```java
+- 출력값 -
+
+서버에 연결되었습니다. 요청을 보냅니다.
+요청을 보냈습니다. 응답을 기다리는 중...
+서버 응답:
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Hello, Spring!!</h1></body></html>
+```
+
+- `String httpRequest = "GET /hello HTTP/1.1 Host: localhost:8080";`
+  - `GET /hello:` /hello 경로로 GET 요청을 보내라는 의미이다.
+  - `localhost:8080`: 요청 보내는 대상인 호스트(서버)의 정보이다.
+
+```java
+Socket socket = new Socket(host, port);
+```
+
+- Socket 객체는 `네트워크 상의 서버와 클라이언트 간에 연결을 설정하는 역할`
+- `new Socket(host, port)`는 localhost라는 호스트(자신의 컴퓨터)와 8080 포트에 있는 서버와 연결을 시도하는 명령이다.
+
+### localhost:8080 대해 궁금증.
+
+<aside>
+    📌
+
+    "localhost" 라는 것은 내 컴퓨터를 의미하고,
+
+    8080 포트는 `내가 연결해야 될 서버`의 정보를 말하는 거야?
+
+    → 정답은 “그렇다”
+
+</aside>
+
+- `localhost`는 자신의 컴퓨터를 의미한다. 즉, 현재 실행 중인 컴퓨터에서 서버와 통신을 한다는 뜻이다. 개발 중에는 `localhost`를 많이 사용해서 자신의 컴퓨터에서 서버를 실행한다.
+- `8080 포트`는 내 컴퓨터에서 실행 중인 `서버의 특정 통신 채널`이다. 그중 8080번 포트에서 `클라이언트의 요청을 받을 준비가 되어 있는 상태`(서버가 동작한다)로 되어 있으면, `new Socket(host, port)`는 이 `8080 포트`를 통해 서버와 연결을 시도하는 것이다.
+  - `서버가 동작한다:` 서버가 내 컴퓨터의 8080번 포트에서 클라이언트의 요청을 대기 중이라는 뜻.
+  - e.g.) `Spring Boot`와 같은 웹 서버를 내 컴퓨터에서 실행하면,
+일반적으로 `8080번 포트`에서 `웹 서버가 대기`하고 있다.
+
+코드 이어서 설명
+
+```java
+BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+- 서버에서 오는 데이터를 차곡차곡 모아서 읽을 수 있게 해주는 코드이다.
+- 마치 한 글자씩 읽기보다는 한 페이지를 한 번에 읽는 것처럼 한다.
+```
+
+- `socket.getInputStream():` 서버에서 보내온 데이터를 읽기 위한 통로를 여는것이다. 서버가 응답 데이터를 보내면, 이 통로를 통해 데이터를 받아올 수 있다.
+- `InputStreamReader:` 바이트 단위로 받은 데이터를 문자 단위로 변환해준다. 컴퓨터는 네트워크 데이터를 바이트로 받기 때문에, 우리가 읽을 수 있는 문자로 바꿔주는 역할을 한다.
+- `BufferedReader:` 입력 속도를 개선하기 위해 데이터를 임시 저장소에 모아두고, 한번에 읽을 수 있게 도와준다.
+
+```java
+PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
+- PrintWriter는 서버로 데이터를 문자 형태로 깔끔하게 보내는 클래스이다.
+- 마치 편지를 써서 상대방(서버)에게 바로 보내는 것과 같다.
+```
+
+- **`socket.getOutputStream()**:` 서버로 데이터를 보낼 수 있는 통로를 연다. 클라이언트(소켓)가 서버에게 요청 메시지를 보내기 위해 이 통로를 사용한다.
+- `PrintWriter:` 문자 데이터를 출력할 수  있도록 도와주는 클래스이다.
+  - 즉, 서버로 텍스트 데이터를 보낼 때 사용한다.
+- `두 번째 인자 true:` 자동으로 데이터를 즉시 전송하게 만든다. 이를 “auto-flush” 라고 부르며, 데이터를 버퍼 에 담아두지 않고 바로 서버로 보내게 설정하는 것이다.
+
+```java
+out.print(httpRequest);
+out.flush();
+
+- 요청 전송: httpRequest 에 담긴 http 요청 메시지를 서버에 보낸다.
+```
+
+- `out.print(httpRequest):` 요청을 전송합니다.
+- `out.flush():` 버퍼에 있는 내용을 강제로 서버로 보낸다.
+
+```java
+StringBuilder response = new StringBuilder();
+String line;
+while ((line = in.readLine()) != null) {
+
+- 응답 수신 시작: 서버로부터 응답을 한 줄씩 읽어온다.
+```
+
+- `in.readLine():` 서버 응답을 한 줄씩 읽는다.
+- `StringBuilder:` 응답을 저장할 때 사용되는 가변 문자열 객체이다.
+
+```java
+response.append(line).append("\n");
+if (line.isEmpty()) {
+```
+
+- `응답 저장:` 서버로부터 읽은 데이터를 `response`에 추가한다.
+
+만약 빈 줄을 만나면, `HTTP 헤더가 끝났음`을 의미합니다.
+
+
+```java
+char[] buffer = new char[1024];
+int charsRead;
+while ((charsRead = in.read(buffer)) != -1) {
+    response.append(buffer, 0, charsRead);
+}
+```
+
+- `본문 읽기:` 헤더가 끝나고 나면, 남은 데이터를 buffer에 저장하면서 본문 내용을 계속 읽는다.
+
+### 클라이언트의 요청을 받아서 응답을 보내는 클래스 이다.
+
+- 클라이언트의 요청을 받아 `8081`번 포트에서 대기하고 있다가, 요청이 들어오면 `새로운 스레드에서 요청`을 처리한 후, `HTML 응답을 클라이언트에게 반환`하는 서버 프로그램 이다.
+
+```java
+
+import java.io.IOException;
+import java.net.Socket;
+
+/**
+ * 요청을 하는 서버는 `source server`다. 요청을 받는 서버는 `target server`다.
+ * <p>
+ * 2. 두 번째는 요청을 받아서 응답을 내려주는 `target server`를 생성한다. ex : curl http://localhost:8081/hello <-> 민석님 서버(8081)
+ */
+public class TargetServer {
+    /**
+     * 요청을 받아서 응답을 내려주는 `target server` 생성 로직
+     */
+    public static void main(String[] args) {
+        try(ServerSocket listenSocket = new ServerSocket(8081)) {
+
+            // 클라이언트가 연결될때까지 대기한다.
+            Socket connection;
+            while ((connection = listenSocket.accept()) != null) {
+                RequestHandler requestHandler = new RequestHandler(connection);
+                Thread thread = new Thread(requestHandler);
+                thread.start();
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static class RequestHandler implements Runnable {
+        private final Socket connection;
+
+        public RequestHandler(Socket connection) {
+            this.connection = connection;
+        }
+
+        @Override
+        public void run() {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                 PrintWriter out = new PrintWriter(connection.getOutputStream(), true)) {
+
+                String request = in.readLine();
+                System.out.println("Request: " + request);
+
+                out.println("HTTP/1.1 200 OK");
+                out.println("Content-Type: application/json; charset=utf-8");
+                out.println();
+                out.println("<html><body><h1>Hello, Spring!</h1></body></html>");
+                out.println();
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+}
+
+```
+
+```java
+try (ServerSocket listenSocket = new ServerSocket(8081)) {
+```
+
+- `ServerSocket 객체 생성:` 8081번 포트에서 서버가 대기한다.
+
+```java
+Socket connection;
+while ((connection = listenSocket.accept()) != null) {
+```
+
+- `클라이언트 연결 대기:` listenSocket.accept() 는 클라이언트가 연결을 요청할 때까지 서버가 대기하는 역할을 한다. 클라이언트가 연결을 시도하면 새로운 소켓 connection을 생성한다.
+
+```java
+RequestHandler requestHandler = new RequestHandler(connection);
+Thread thread = new Thread(requestHandler);
+thread.start();
+```
+
+- `요청 처리 스레드 생성:` RequestHandler라는 클래스로 각 클라이언트의 요청을 처리하는 스레드를 생성한다.
+  - 이렇게 한다면, 여러 클라이언트의 요청을 동시에 처리할 수 있기 때문이다.
+
+```java
+private final Socket connection;
+```
+
+- `클라이언트 소켓 저장:` 클라이언트와 연결을 관리하는 Socket 객체를 저장한다.
+
+```java
+try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+     PrintWriter out = new PrintWriter(connection.getOutputStream(), true)) {
+```
+
+- `in:` 클라이언트로부터 데이터를 입력받기 위해 BufferedReader를 사용한다.
+  - InputStreamReader 로 `입력 스트림을 문자로 변환`한다.
+- `out:` 클라이언트에게 응답을 보내기 위해 PrintWriter 를 사용한다.
+  - `데이터를 보내는 출력` 스트림이다.
+
+```java
+String request = in.readLine();
+System.out.println("Request: " + request);
+```
+
+- `요청 읽기:` 클라이언트의 요청 메시지를 한 줄 읽어온다.
+  - `in.readLine():` 클라이언트로부터 받은 HTTP 요청의 첫 줄
+  - e.g.) `GET /hello HTTP/1.1` 을 읽어 온다.
+
+```java
+out.println("HTTP/1.1 200 OK");
+out.println("Content-Type: text/html; charset=utf-8");
+out.println();
+out.println("<html><body><h1>Hello, Spring!!</h1></body></html>");
+out.println();
+```
+
+- `응답 보내기`
+  - `HTTP/1.1 200 OK:` 클라이언트에게 요청이 성공했음을 알리는 응답 상태 코드이다.
+  - `Content-Type: text/html; charset=utf-8:` 응답의 내용이 HTML이며, UTF-8 문자 인코딩을 사용한다는 것을 알려준다.
+
+## 심화 학습
+
+### 요청을 하는 서버는 `source server` 이다.
+
+```java
+/**
+ * 요청을 하는 서버는 `source server` / 요청을 받는 서버는 `target server`
+ * <p>
+ * 1. 첫 번째는 요청을 해서 응답을 받는 `source server`를 생성한다.
+ *    ex : 민석님 서버(8080) <-> 스프링 서버(GET http://localhost:8080/hello)
+ */
+public class SourceServer {
+    /**
+     * 요청을 해서 응답을 받는 `source server`를 생성 로직
+     */
+    public static void main(String[] args) {
+        String host = "localhost";
+        int port = 8081; // TargetServer 포트랑 같아야 한다.
+
+        // 고정된 HTTP 요청 메시지 케이스1
+        String httpRequest = """
+                GET /hello HTTP/1.1
+                Host: localhost:8081
+                """;
+
+        // 고정된 HTTP 요청 메시지 케이스2
+//        String httpRequest = """
+//                GET /hi?message=HelloWorld&username=SourceServer HTTP/1.1
+//                Host: localhost:8081
+//                """;
+
+        // 고정된 HTTP 요청 메시지 케이스3
+//        String httpRequest = """
+//                GET /aaaa?message=HelloWorld&username=SourceServer HTTP/1.1
+//                Host: localhost:8081
+//                """;
+
+        try (Socket socket = new Socket(host, port);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            System.out.println("서버에 연결되었습니다. 요청을 보냅니다.");
+
+            // 요청 전송
+            out.print(httpRequest);
+            out.flush();
+
+            System.out.println("요청을 보냈습니다. 응답을 기다리는 중...");
+
+            // 응답 수신 및 출력
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                response.append(line).append("\n");
+                if (line.isEmpty()) {
+                    // 빈 줄(헤더의 끝)을 만나면 본문만 따로 읽기
+                    char[] buffer = new char[1024];
+                    int charsRead;
+                    while ((charsRead = in.read(buffer)) != -1) {
+                        response.append(buffer, 0, charsRead);
+                    }
+                    break;
+                }
+            }
+
+            System.out.println("서버 응답:\n" + response);
+
+        } catch (Exception e) {
+            System.out.println("알 수 없는 오류");
+            e.printStackTrace();  // 예외 정보 출력
+        }
+    }
+}
+
+```
+
+### 요청을 받는 서버는 `target server`다.
+
+```java
+/**
+ * 요청을 하는 서버는 `source server`다. 요청을 받는 서버는 `target server`다.
+ * <p>
+ * 2. 두 번째는 요청을 받아서 응답을 내려주는 `target server`를 생성한다.
+ *    ex : curl http://localhost:8081/hello <-> 민석님 서버(8081)
+ */
+public class TargetServer {
+    /**
+     * 요청을 받아서 응답을 내려주는 `target server` 생성 로직
+     */
+    public static void main(String[] args) {
+        try (ServerSocket listenSocket = new ServerSocket(8081)) { // SourceServer 포트랑 같아야 한다.
+
+            // 클라이언트가 연결될때까지 대기한다.
+            Socket connection;
+            while ((connection = listenSocket.accept()) != null) {
+                RequestHandler requestHandler = new RequestHandler(connection);
+                Thread thread = new Thread(requestHandler);
+                thread.start();
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static class RequestHandler implements Runnable {
+        private final Socket connection;
+
+        public RequestHandler(Socket connection) {
+            this.connection = connection;
+        }
+
+        @Override
+        public void run() {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                 PrintWriter out = new PrintWriter(connection.getOutputStream(), true)) {
+
+                String request = in.readLine(); // e.g.) "GET /hello?message=HelloWorld&username=minSeok HTTP/1.1" 읽어 온다.
+                System.out.println("Request: " + request);
+
+                // 요청 경로와 쿼리 파라미터 파싱
+                String[] requestParts = request.split(" ");
+                String pathWithQuery = requestParts[1]; // "/hello?message=HelloWorld&username=minSeok"
+
+                String path = pathWithQuery.split("\\?")[0]; // "/hello"
+                Map<String, String> queryParams = parseQueryParams(pathWithQuery);
+
+                // 이후 조건문은 그대로 유지
+                String responseBody;
+                if ("/hello".equals(path)) {
+                    responseBody = "<html><body><h1>케이스1) Hello, " + queryParams.getOrDefault("username", "게스트") +
+                            "</h1><p>Message: " + queryParams.getOrDefault("message", "메시지 없다") + "</p></body></html>";
+                } else if ("/hi".equals(path)) {
+                    responseBody = "<html><body><h1>케이스2) Hi, " + queryParams.getOrDefault("username", "게스트") +
+                            "</h1><p>Message: " + queryParams.getOrDefault("message", "메시지 없다") + "</p></body></html>";
+                } else {
+                    responseBody = "<html><body><h1>찾을 수 없다.</h1></body></html>";
+                }
+
+                // HTTP 응답 전송
+                // SourceServer를 실행 시키면 여기서 정해준 대로 출력 되는것이다.
+                out.println("HTTP/1.1 200 OK");
+                out.println("Content-Type: text/html; charset=utf-8");
+                out.println();
+                out.println(responseBody);
+                out.println();
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        // 쿼리 파라미터를 파싱하는 메서드
+        private Map<String, String> parseQueryParams(String pathWithQuery) {
+            Map<String, String> queryParams = new HashMap<>();
+
+            if (pathWithQuery.contains("?")) {
+                String queryString = pathWithQuery.split("\\?")[1];  // "message=HelloWorld&username=minSeok"
+                String[] params = queryString.split("&");
+
+                for (String param : params) {
+                    String[] keyValue = param.split("=");
+                    if (keyValue.length == 2) {
+                        String key = URLDecoder.decode(keyValue[0], java.nio.charset.StandardCharsets.UTF_8);
+                        String value = URLDecoder.decode(keyValue[1], java.nio.charset.StandardCharsets.UTF_8);
+                        queryParams.put(key, value);
+                    }
+                }
+            }
+
+            return queryParams;
+        }
+    }
+}
+
+```
+
+- 심화 학습을 진행하면서 느꼈던 것은, 정말 하나라도 그냥 쓰이는게 없다는 느낌을 받았다.
+  - e.g.) `“?”` , `“&”` , `“=”` 같은 특수 문자들이 괜히 있는게 아니라는 생각을 하였다.
+
+### http 요청 파싱 및 처리 과정.
+
+```java
+String request = in.readLine(); // e.g., "GET /hello?message=HelloWorld&username=minSeok HTTP/1.1"
+String[] requestParts = request.split(" ");
+String pathWithQuery = requestParts[1]; // "/hello?message=HelloWorld&username=minSeok"
+String path = pathWithQuery.split("\\?")[0]; // "/hello"
+Map<String, String> queryParams = parseQueryParams(pathWithQuery);
+```
+
+- `요청 파싱:` 클라이언트가 보낸 HTTP 요청 문자열을 읽어오고, `split(" ")`을 통해 요청 `메서드(GET)`, `경로`, `HTTP 버전`을 `분리 작업`을 한다. 여기서 경로`(/hello?message=HelloWorld&username=minSeok)`와 쿼리 파라미터를 추출한다.
+- `경로 추출:` `split("\\?")[0]`을 사용하여 쿼리 파라미터 `(?message=HelloWorld&username=minSeok)` 이전의 경로만 추출한다.
+- `쿼리 파라미터 파싱:` parseQueryParams() 메서드를 통해 경로의 쿼리 파라미터를 추출하고, `Map<String, String>` 형태로 저장한다.
+  - `e.g.) message=HelloWorld, username=minSeok.`
+
+### 조건에 따른 응답 처리
+
+```java
+if ("/hello".equals(path)) {
+    responseBody = "<html><body><h1>케이스1) Hello, " + queryParams.getOrDefault("username", "게스트") +
+                   "</h1><p>Message: " + queryParams.getOrDefault("message", "메시지 없다") + "</p></body></html>";
+} else if ("/hi".equals(path)) {
+    responseBody = "<html><body><h1>케이스2) Hi, " + queryParams.getOrDefault("username", "게스트") +
+                   "</h1><p>Message: " + queryParams.getOrDefault("message", "메시지 없다") + "</p></body></html>";
+} else {
+    responseBody = "<html><body><h1>찾을 수 없다.</h1></body></html>";
+}
+
+```
+
+- `경로에 따른 응답:` 요청 경로가 `/hello`일 경우와 `/hi`일 경우에 맞춰 응답을 다르게 처리한다.
+- `쿼리 파라미터 값 사용:` `queryParams.getOrDefault()` 메서드를 통해, 쿼리 파라미터가 없으면 기본값을 설정한다.
+  - e.g.) `username` 파라미터가 없으면 `"게스트"`라는 값이 기본값으로 사용됩니다.
+
+## 스프링 프레임워크와의 차이
+
+Spring Framework에서는 쿼리 파라미터를 `수동`으로 `파싱할 필요 없이`, Spring이 제공하는 어노테이션을 사용해 간편하게 처리할 수 있었다.
+
+즉, Spring은 `HTTP 요청에서 쿼리 파라미터를 자동으로 추출`하고, 이를 메서드 매개변수로 전달 해줬다. 이를 가능하게 하는 어노테이션은 `@RequestParam`이다.
+
+이 어노테이션을 사용하면, 쿼리 스트링에 포함된 파라미터를 쉽게 받아온다.
+
+```java
+@RestController
+public class MyController {
+
+    // /hello?message=HelloWorld&username=minSeok 같은 요청을 처리
+    @GetMapping("/hello")
+    public String hello(@RequestParam(value = "message",  defaultValue = "No message") String message, // "message" 파라미터 자동 추출
+                        @RequestParam(value = "username", defaultValue = "Guest")      String username) {  // "username" 파라미터 자동 추출
+
+        return "<html><body><h1>Hello, " + username + "!</h1><p>Message: " + message + "</p></body></html>";
+    }
+
+    // /hi?message=HiThere&username=JohnDoe 같은 요청을 처리
+    @GetMapping("/hi")
+    public String hi(@RequestParam(value = "message",  defaultValue = "No message") String message,
+                     @RequestParam(value = "username", defaultValue = "Guest")      String username) {
+
+        return "<html><body><h1>Hi, " + username + "!</h1><p>Message: " + message + "</p></body></html>";
+    }
+}
+```
+
+### 주요 차이점
+
+- `자동 처리:` `@RequestParam` 어노테이션을 사용하면 쿼리 파라미터를 일일이 파싱하는 코드를 작성할 필요가 없다.
+- `데이터 타입 자동 변환:` Spring은 쿼리 파라미터를 자동으로 적절한 데이터 타입으로 변환한다. 예를 들어, 쿼리 파라미터가 숫자일 경우 `int`로 변환하거나, `boolean` 같은 타입으로 자동 변환할 수 있다.
+- **`간결한 코드**:` Spring을 사용하면 코드가 훨씬 간결해진다. 직접적으로 HTTP 요청을 파싱하지 않고, 비즈니스 로직에만 집중할 수 있다는 것이다.
+
+```java
+### 예시 요청 및 처리:
+
+- 요청: `GET /hello?message=HelloWorld&username=minSeok`
+
+- 자동 처리:
+   - message=HelloWorld 는 `message` 매개변수로 자동 할당 된다.
+   - username=minSeok   은 `username` 매개변수로 자동 할당 된다.
+
+- 결과:
+   - "<html><body><h1>Hello, minSeok!</h1><p>Message: HelloWorld</p></body></html>"
+```
+
+`결론`은 Spring에서는 수동으로 쿼리 파라미터를 파싱할 필요 없이, `@RequestParam`을
+통해 HTTP 요청의 파라미터를 자동으로 처리하여 변환해준다는 것이다.
+
+## 결론
+
+이번 학습을 통해 HTTP가 `클라이언트-서버 모델`에서 어떻게 동작하는지 직접 구현하며 이해할 수 있었다. HTTP는 클라이언트와 서버가 데이터를 주고받기 위한 기본적인 통신 프로토콜이며, 이를 수동으로 구현하면서 HTTP `요청, 응답, 헤더, 상태 코드, 쿼리 파라미터` 등의 개념을 명확히 다졌다.
+
+직접 HTTP를 구현하면서, 소켓을 사용해 클라이언트와 서버 간의 통신을 어떻게 설정하고 데이터를 주고받는지 구체적으로 알 수 있었다. 특히, `요청 파라미터를 수동으로 파싱`하고 `응답을 처리하는 과정`에서 복잡함을 느끼며, `Spring과 같은 프레임워크`가 제공하는 `자동화된 처리 방식의 장점`을 체감할 수 있었다.
+
+결론적으로, 직접적인 `소켓 프로그래밍을 통해 HTTP 프로토콜`을 이해하는 기초를 다졌고, Spring Framework의 기능을 활용함으로써 개발 생산성을 높일 수 있음을 깨달았다. 앞으로 Spring과 같은 프레임워크의 `자동화된 기능`을 더 활용하면서도, 자바 코드 구현 수준에서의 `HTTP 동작 원리에 대한 이해`를 베이스로 효율적인 웹 애플리케이션을 개발할 수 있도록 해야겠다.
