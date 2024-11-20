@@ -6,6 +6,8 @@ draft: false
 summary: 'HTTP의 개념과 동작 원리, 그리고 Spring과의 비교'
 ---
 
+### Introduction
+
 <TOCInline toc={props.toc} exclude="Introduction" />
 
 ## HTTP 정리하는 목적
@@ -14,7 +16,7 @@ summary: 'HTTP의 개념과 동작 원리, 그리고 Spring과의 비교'
 - HTTP를 직접 `구현` 해보기.
   - 구현하며, 몰랐던 부분에 대해서 정리하기.
 - 스프링이랑 비교 해보면서 자바 코드로는 어떻게 하는 건지 고민하기.
-  - “스프링은 전부 해주던데, 여기에서는 뭐가 다른지 고민하기”
+  - `“스프링은 전부 해주던데, 여기에서는 뭐가 다른지 고민하기”`
 
 ## HTTP 개념
 
@@ -72,14 +74,12 @@ Content-Type: application/json
 
 `HTTPS:` HTTP + 암호화로, 클라이언트와 서버 간의 통신이 암호화되어 안전한 방식으로 데이터를 주고 받을 수 있다. HTTPS는 기본적으로 보안을 위해 서비스에서 사용해야 하는 표준이다.
 
-### “HTTP가 뭔가요?” 질문 답하기
+### 📌 “HTTP가 뭔가요?” 질문 답하기
 
-<aside>
-    📌
+HTTP는 클라이언트와 서버가 데이터를 주고받기 위한 `통신 프로토콜`이다.
+주로 `웹 브라우저가 서버에 요청`을 보내고, `서버가 그에 대한 응답을 반환`하는 방식으로 동작한다.
+`무상태 프로토콜`이라, 요청마다 독립적으로 처리되고, GET이나 POST 같은 메서드로 데이터를 조회하거나 전송할 수 있다.
 
-    HTTP는 클라이언트와 서버가 데이터를 주고받기 위한 `통신 프로토콜`이다. 주로 `웹 브라우저가 서버에 요청`을 보내고, `서버가 그에 대한 응답을 반환`하는 방식으로 동작한다. `무상태 프로토콜`이라, 요청마다 독립적으로 처리되고, GET이나 POST 같은 메서드로 데이터를 조회하거나 전송할 수 있다.
-
-</aside>
 
 ### 무상태 프로토콜이 뭔가요?
 
@@ -88,34 +88,22 @@ Content-Type: application/json
 - e.g.) 클라이언트가 A 요청을 보내고, 그 다음 B 요청을 보내더라도, 서버는 A 요청과 B 요청이 연관되어 있다는 `사실을 알 수 없다`는 뜻이다.
 - 만약 상태 정보를 유지하고 싶다면, 클라이언트가 `매 요청마다 필요한 정보` 즉, `사용자 인증 정보 같은 것을 서버`에 보내야 하는 것이다.
 
-<aside>
-    📌
+📌 상태를 유지하기 위해 쿠키, 세션, JWT 같은 기술을 추가적으로 사용해 클라이언트와 서버간의 상태를 추적할 수 있다.
 
-    상태를 유지하기 위해 쿠키, 세션, JWT 같은 기술을 추가적으로 사용해 클라이언트와 서버간의 상태를 추적할 수 있다.
-
-</aside>
 
 ### 무상태 프로토콜의 장/단점이 뭔가요?
 
 - `장점:`확장성이 좋다는 것이다. 서버가 각 클라이언트의 상태를 기억하지 않아도 되므로, 요청 처리에 필요한 리소스가 적다
 - `단점:` 클라이언트가 필요한 모든 데이터를 요청에 담아 보내야 하므로, 요청이 더 복잡해질 수 있다.
 
-### Socket이 뭔가요?
+### 📌 Socket이 뭔가요?
 
-<aside>
-    📌
+네트워크 연결을 나타내는 객체로, 클라이언트와 서버 간 데이터를 주고받기 위한 통로이다.
+`쉽게 말해:` 소켓은 전화 통화에서 전화기 같은 역할을 한다.
+전화기로 상대방(서버)에게 전화를 걸어서 연결을 설정하는 것이다.
 
-    네트워크 연결을 나타내는 객체로,
-
-    클라이언트와 서버 간 데이터를 주고받기 위한 통로이다.
-
-    **`쉽게 말해**:` 소켓은 전화 통화에서 전화기 같은 역할을 한다.
-
-    전화기로 상대방(서버)에게 전화를 걸어서 연결을 설정하는 것이다.
-
-</aside>
-
-소켓은 네트워크에서 `클라이언트와 서버 간의 통신을 위한 엔드포인트`를 나타낸다. 네트워크 상에서 두 컴퓨터가 서로 데이터를 주고받기 위해서는 `양쪽에 소켓`이 있어야 한다는 것이다.
+소켓은 네트워크에서 `클라이언트와 서버 간의 통신을 위한 엔드포인트`를 나타낸다.
+네트워크 상에서 두 컴퓨터가 서로 데이터를 주고받기 위해서는 `양쪽에 소켓`이 있어야 한다는 것이다.
 
 - `소켓의 역할은?`
   - `연결 설정:` 클라이언트와 서버 간에 데이터를 주고받을 통로를 만드는 역할을 한다.
@@ -124,14 +112,8 @@ Content-Type: application/json
   - `IP 주소 (host)` : 통신할 대상의 네트워크 주소를 지정한다.
   - `포트 번호 (port)` : 하나의 IP 주소에 여러 서버를 동시에 실행할 수 있기 때문에, 각각의 서비스는 고유한 포트 번호를 사용하여 통신한다.
 
-<aside>
-    📌
+📌 평소 사용하는 `localhost:8080` 에 대해 설명하자면, Socket 객체는 `localhost:8080` 에 연결을 시도하려는 클라이언트를 생성한다. 즉, `IP 주소 localhost`와 `포트 번호 8080`으로 특정 서버에 연결한다.
 
-    평소 사용하는 `localhost:8080` 에 대해 설명하자면, Socket 객체는 `localhost:8080` 에 연결을 시도하려는 클라이언트를 생성한다.
-
-    즉, `IP 주소 localhost`와 `포트 번호 8080`으로 특정 서버에 연결한다.
-
-</aside>
 
 ## 해결
 
@@ -199,12 +181,10 @@ public class SourceServer {
         }
     }
 }
-
 ```
 
-```java
 - 출력값 -
-
+```java
 서버에 연결되었습니다. 요청을 보냅니다.
 요청을 보냈습니다. 응답을 기다리는 중...
 서버 응답:
@@ -218,6 +198,8 @@ Content-Type: text/html; charset=utf-8
   - `GET /hello:` /hello 경로로 GET 요청을 보내라는 의미이다.
   - `localhost:8080`: 요청 보내는 대상인 호스트(서버)의 정보이다.
 
+<br/>
+
 ```java
 Socket socket = new Socket(host, port);
 ```
@@ -225,24 +207,19 @@ Socket socket = new Socket(host, port);
 - Socket 객체는 `네트워크 상의 서버와 클라이언트 간에 연결을 설정하는 역할`
 - `new Socket(host, port)`는 localhost라는 호스트(자신의 컴퓨터)와 8080 포트에 있는 서버와 연결을 시도하는 명령이다.
 
-### localhost:8080 대해 궁금증.
 
-<aside>
-    📌
+### 📌 localhost:8080 대해 궁금증.
 
-    "localhost" 라는 것은 내 컴퓨터를 의미하고,
-
-    8080 포트는 `내가 연결해야 될 서버`의 정보를 말하는 거야?
-
-    → 정답은 “그렇다”
-
-</aside>
+"localhost" 라는 것은 내 컴퓨터를 의미하고, 8080 포트는 `내가 연결해야 될 서버`의 정보를 말하는 거야?
+→ 정답은 `“그렇다”`
 
 - `localhost`는 자신의 컴퓨터를 의미한다. 즉, 현재 실행 중인 컴퓨터에서 서버와 통신을 한다는 뜻이다. 개발 중에는 `localhost`를 많이 사용해서 자신의 컴퓨터에서 서버를 실행한다.
 - `8080 포트`는 내 컴퓨터에서 실행 중인 `서버의 특정 통신 채널`이다. 그중 8080번 포트에서 `클라이언트의 요청을 받을 준비가 되어 있는 상태`(서버가 동작한다)로 되어 있으면, `new Socket(host, port)`는 이 `8080 포트`를 통해 서버와 연결을 시도하는 것이다.
   - `서버가 동작한다:` 서버가 내 컴퓨터의 8080번 포트에서 클라이언트의 요청을 대기 중이라는 뜻.
   - e.g.) `Spring Boot`와 같은 웹 서버를 내 컴퓨터에서 실행하면,
 일반적으로 `8080번 포트`에서 `웹 서버가 대기`하고 있다.
+
+<br/>
 
 코드 이어서 설명
 
@@ -257,6 +234,8 @@ BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStre
 - `InputStreamReader:` 바이트 단위로 받은 데이터를 문자 단위로 변환해준다. 컴퓨터는 네트워크 데이터를 바이트로 받기 때문에, 우리가 읽을 수 있는 문자로 바꿔주는 역할을 한다.
 - `BufferedReader:` 입력 속도를 개선하기 위해 데이터를 임시 저장소에 모아두고, 한번에 읽을 수 있게 도와준다.
 
+<br/>
+
 ```java
 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
@@ -269,6 +248,8 @@ PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
   - 즉, 서버로 텍스트 데이터를 보낼 때 사용한다.
 - `두 번째 인자 true:` 자동으로 데이터를 즉시 전송하게 만든다. 이를 “auto-flush” 라고 부르며, 데이터를 버퍼 에 담아두지 않고 바로 서버로 보내게 설정하는 것이다.
 
+<br/>
+
 ```java
 out.print(httpRequest);
 out.flush();
@@ -278,6 +259,8 @@ out.flush();
 
 - `out.print(httpRequest):` 요청을 전송합니다.
 - `out.flush():` 버퍼에 있는 내용을 강제로 서버로 보낸다.
+
+<br/>
 
 ```java
 StringBuilder response = new StringBuilder();
@@ -290,6 +273,8 @@ while ((line = in.readLine()) != null) {
 - `in.readLine():` 서버 응답을 한 줄씩 읽는다.
 - `StringBuilder:` 응답을 저장할 때 사용되는 가변 문자열 객체이다.
 
+<br/>
+
 ```java
 response.append(line).append("\n");
 if (line.isEmpty()) {
@@ -299,6 +284,7 @@ if (line.isEmpty()) {
 
 만약 빈 줄을 만나면, `HTTP 헤더가 끝났음`을 의미합니다.
 
+<br/>
 
 ```java
 char[] buffer = new char[1024];
@@ -374,11 +360,15 @@ public class TargetServer {
 
 ```
 
+<br/>
+
 ```java
 try (ServerSocket listenSocket = new ServerSocket(8081)) {
 ```
 
 - `ServerSocket 객체 생성:` 8081번 포트에서 서버가 대기한다.
+
+<br/>
 
 ```java
 Socket connection;
@@ -386,6 +376,8 @@ while ((connection = listenSocket.accept()) != null) {
 ```
 
 - `클라이언트 연결 대기:` listenSocket.accept() 는 클라이언트가 연결을 요청할 때까지 서버가 대기하는 역할을 한다. 클라이언트가 연결을 시도하면 새로운 소켓 connection을 생성한다.
+
+<br/>
 
 ```java
 RequestHandler requestHandler = new RequestHandler(connection);
@@ -396,11 +388,15 @@ thread.start();
 - `요청 처리 스레드 생성:` RequestHandler라는 클래스로 각 클라이언트의 요청을 처리하는 스레드를 생성한다.
   - 이렇게 한다면, 여러 클라이언트의 요청을 동시에 처리할 수 있기 때문이다.
 
+<br/>
+
 ```java
 private final Socket connection;
 ```
 
 - `클라이언트 소켓 저장:` 클라이언트와 연결을 관리하는 Socket 객체를 저장한다.
+
+<br/>
 
 ```java
 try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -412,6 +408,8 @@ try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.get
 - `out:` 클라이언트에게 응답을 보내기 위해 PrintWriter 를 사용한다.
   - `데이터를 보내는 출력` 스트림이다.
 
+<br/>
+
 ```java
 String request = in.readLine();
 System.out.println("Request: " + request);
@@ -420,6 +418,8 @@ System.out.println("Request: " + request);
 - `요청 읽기:` 클라이언트의 요청 메시지를 한 줄 읽어온다.
   - `in.readLine():` 클라이언트로부터 받은 HTTP 요청의 첫 줄
   - e.g.) `GET /hello HTTP/1.1` 을 읽어 온다.
+
+<br/>
 
 ```java
 out.println("HTTP/1.1 200 OK");
