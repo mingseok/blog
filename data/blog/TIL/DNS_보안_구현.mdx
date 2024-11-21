@@ -276,7 +276,7 @@ public class DNSClient {
     - 클라이언트는 특정 도메인 이름에 대한 DNS 요청을 생성하고 서버로 전송한다.
     - 서버에서 받은 응답 데이터를 출력한다.
 
-### DNS Spoofing 서버와 클라이언트의 출력
+### 테스트 방법
 
 1. `DNSSpoofingServer`를 실행하여 DNS 스푸핑 서버를 시작한다.
 2. `DNSClient`를 실행하여 요청을 보낸다.
@@ -297,6 +297,8 @@ DNS 스푸핑 서버 실행 중...
 
     - 서버는 가짜 응답 데이터를 생성하고, 클라이언트는 이를 정상적으로 출력한다.
     - 클라이언트가 출력하는 IP 주소는 서버에서 설정한 가짜 IP 주소(`192.168.1.100`) 이다.
+
+
 
 ## DNS 캐시 포이즈닝 (DNS Cache Poisoning)
 
@@ -442,11 +444,6 @@ public class DNSCachePoisoningServer {
         - 질문 섹션은 요청 데이터를 그대로 복사한다.
         - 응답 섹션에 가짜 IP 주소를 포함하여 응답 데이터 생성한다.
 
-### 테스트 방법
-
-1. `DNSCachePoisoningServer`를 실행한다.
-2. 클라이언트(예: `nslookup example.com 127.0.0.1`)로 DNS 요청을 보낸다.
-3. 캐시에 가짜 IP 주소(`192.168.1.100`)가 삽입된 것을 확인한다.
 
 ### DNS Client 코드 구현
 
@@ -535,8 +532,6 @@ public class DNSClient {
 }
 
 ```
-
-### 코드 설명
 
 1. DNS 요청 생성:
     - `createDNSQuery()` 메서드는 도메인 이름을 기반으로 DNS 요청 패킷을 생성한다.
