@@ -1,0 +1,621 @@
+---
+title: 'DNS와 보안 DNS Spoofing과 Cache Poisoning 구현을 통한 개인적인 정리'
+date: '2024-11-21'
+tags: ['HTTP', 'DNS', 'DNS Spoofing', 'DNS Cache Poisoning', '보안', '네트워크']
+draft: false
+summary: 'DNS Spoofing 서버와 DNS Cache Poisoning 서버를 구현해 보며, DNS 보안의 중요성을 정리'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+## DNS
+
+도메인 네임 시스템 (=Domain Name System)
+
+![image.png](/public/static/images/이미지1.png)
+
+우리는 도메인 이름 `(www.mingseok.kr)`을 사용하여 웹사이트에 접근하지만, 실제로 컴퓨터는 숫자로 구성된 IP 주소`(192.0.2.1)`를 사용해 서로 통신한다. DNS는 이러한 도메인 이름을 `IP 주소`로 `변환`해 주는 역할을 하는 것이다.
+
+- DNS는 `인터넷 도메인 이름`을 `IP 주소로 변환`하는 시스템이다.
+- DNS는 IP주소에 `사람이 이해할 수 있는` `도메임 이름`을 `매핑`하여 통신을 쉽게 한다.
+- IP는 기억하기 어렵다. 또한 IP는 변경될 수도 있다.
+  - e.g.) 이사 했을 경우
+
+### DNS 작동 과정.
+
+![image.png](/public/static/images/이미지2.png)
+
+웹사이트에 접속할 때 `DNS`가 어떻게 동작하는지 확인.
+
+1. **`도메인 요청**:` 사용자가 브라우저에 도메인 이름을 입력하면, 브라우저는 캐싱 네임서버에 해당 도메인의 IP 주소를 요청한다.
+2. **`캐시 확인**:` 캐싱 네임서버는 요청받은 도메인의 IP 주소를 `이미 알고 있다면` 즉시 반환한다.
+ - 만약 캐시에 없으면 `루트 서버에 요청`한다.
+3. **`루트 서버 요청**:` 루트 서버는 요청받은 도메인의 `최상위 도메인(TLD)` 서버를 안내한다.
+4. **`TLD 서버 요청**:` 캐싱 네임서버는 TLD 서버에 IP 주소를 요청하고, `TLD 서버는 해당 도메인의 권한 있는 네임서버를 안내`한다.
+5. **`권한 있는 네임서버 요청**:` 권한 있는 네임서버는 도메인의 IP 주소를 캐싱 네임서버에 반환한다.
+6. **`IP 주소 반환**:` 캐싱 네임서버는 IP 주소를 브라우저에 전달하고, 브라우저는 이를 통해 웹 서버에 접근하여 웹 페이지를 가져오게 되는 것이다.
+
+### 코드로 구현해보기.
+
+```java
+public class DNS {
+
+    public static void main(String[] args) {
+        String domainName = "naver.com";
+        boolean ipCached = false;  // IP 주소가 캐시에 있는지 여부
+
+        dnsQuerySimulation(domainName, ipCached);
+    }
+
+    // DNS 요청 과정의 각 단계
+    public static void dnsQuerySimulation(String domainName, boolean ipCached) {
+        System.out.println("사용자가 " + domainName + "에 접속을 요청합니다.");
+
+        System.out.println("브라우저가 캐싱 네임서버에 IP 요청");
+        String ipAddress = requestDNS(ipCached);
+
+        System.out.println("브라우저가 IP 주소를 받았습니다: " + ipAddress);
+        System.out.println("브라우저가 웹 서버에 접속하여 웹 페이지를 가져옵니다.");
+    }
+
+    public static String requestDNS(boolean ipCached) {
+        // IP 주소가 캐시에 있는지 확인
+        if (ipCached) {
+            return "캐시된 IP 주소 반환";
+        } else {
+            return requestRootServer();
+        }
+    }
+
+    public static String requestRootServer() {
+        System.out.println("루트 서버에 IP 요청");
+        return requestTLDServer();
+    }
+
+    public static String requestTLDServer() {
+        System.out.println("TLD 서버가 권한 있는 네임서버로 안내");
+        return requestAuthoritativeNameServer();
+    }
+
+    public static String requestAuthoritativeNameServer() {
+        System.out.println("권한 있는 네임서버에 IP 요청");
+        // 최종적으로 IP 주소를 반환
+        return "권한 있는 네임서버에서 IP 주소 반환";
+    }
+}
+
+```
+
+### DNS와 HTTP의 관계.
+
+- DNS는 HTTP 요청이 `시작되기 전에` 도메인 이름을 IP 주소로 변환하는 데 사용된다.
+- HTTP 요청은 IP 주소를 기반으로 웹 서버와 통신하므로, DNS가 올바르게 작동하지 않으면 웹사이트에 접근할 수 없게 되는 것이다.
+
+### DNS와 보안.
+
+- DNS는 보안적으로 중요한 역할을 한다.
+
+예를 들어, **`DNS 스푸핑`**이나 **`DNS 캐시 포이즈닝`** 같은 공격은 잘못된 IP 주소를 반환하여 사용자를 `가짜 웹사이트로 유도`할 수도 있다. 이를 방지하기 위해 **`DNSSEC`**와 같은 보안 프로토콜이 사용한다.
+
+## **DNS 스푸핑**과 **DNS 캐시 포이즈닝**
+
+![image.png](/public/static/images/이미지3.png)
+
+각각의 취약점과 이를 방지하기 위한 해결 방법이다.
+
+## DNS 스푸핑 (DNS Spoofing)
+
+```java
+특정 요청에 대해 악의적인 가짜 응답을 반환해 즉각적으로 클라이언트를 가짜 웹사이트로 리디렉션한다는 것이다.
+```
+
+DNS 스푸핑은 공격자가 **`DNS 응답을 위조`**하여, 사용자에게 잘못된 IP 주소를 제공하는 방식이다. DNS 요청을 가로채서, 가짜 응답을 생성해 사용자를 악성 사이트로 유도할 수 있다.
+
+- **`발생 원인**:` 기본적인 DNS 프로토콜은 데이터 무결성 검사를 수행하지 않기 때문에, 공격자가 쉽게 데이터를 위조할 수 있다.
+- **`해결 방법**:`
+  - `DNSSEC`(Domain Name System Security Extensions)을 사용하여, 응답 메시지의 무결성을 검증한다. DNSSEC은 DNS 데이터에 디지털 서명을 추가하여, 데이터를 위변조하지 않았음을 보장하는 것이다.
+  - **`SSL/TLS`**를 사용하여 통신의 암호화 하는 방법도 있다고 한다.
+
+### DNS Spoofing Server 코드 구현
+
+```java
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+
+public class DNSSpoofingServer {
+
+    public static void main(String[] args) {
+        try (DatagramSocket socket = new DatagramSocket(53)) { // 53번 포트로 UDP 소켓 생성 (DNS 기본 포트)
+            System.out.println("DNS 스푸핑 서버 실행 중...");
+
+            byte[] buffer = new byte[512]; // DNS 요청 데이터를 받을 버퍼 크기 설정
+            while (true) {
+                // 클라이언트로부터 DNS 요청을 수신
+                DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+                socket.receive(request); // 요청을 수신하고 버퍼에 저장
+
+                // 요청 데이터에 기반한 가짜 응답 생성
+                byte[] spoofedResponse = createFakeResponse(request.getData());
+
+                // 가짜 응답을 클라이언트로 전송
+                DatagramPacket response = new DatagramPacket(
+                        spoofedResponse, spoofedResponse.length,
+                        request.getAddress(), request.getPort()
+                );
+                socket.send(response); // 응답 전송
+
+                System.out.println("스푸핑 응답 전송: " + request.getAddress());
+            }
+        } catch (Exception e) {
+            e.printStackTrace(); // 예외 발생 시 스택 트레이스 출력
+        }
+    }
+
+    // 가짜 DNS 응답 생성
+    private static byte[] createFakeResponse(byte[] request) {
+        // DNS 요청의 트랜잭션 ID 추출 (첫 2바이트)
+        byte[] transactionId = new byte[] { request[0], request[1] };
+
+        // 가짜 응답 생성
+        byte[] response = new byte[512]; // 응답 데이터 버퍼
+        response[0] = transactionId[0]; // 트랜잭션 ID 복사 (첫 번째 바이트)
+        response[1] = transactionId[1]; // 트랜잭션 ID 복사 (두 번째 바이트)
+        response[2] = (byte) 0x81; // QR=1 (응답), Opcode=0 (표준 쿼리)
+        response[3] = (byte) 0x80; // AA=1 (권한 있음), RCODE=0 (정상)
+        response[4] = 0; // QDCOUNT (질문 수): 1
+        response[5] = 1;
+        response[6] = 0; // ANCOUNT (응답 수): 1
+        response[7] = 1;
+        response[8] = 0; // NSCOUNT (권한 기록 수): 0
+        response[9] = 0;
+        response[10] = 0; // ARCOUNT (추가 기록 수): 0
+        response[11] = 0;
+
+        // 질문 섹션 복사
+        System.arraycopy(request, 12, response, 12, request.length - 12);
+
+        // 응답 섹션 추가 (가짜 IP)
+        int offset = request.length; // 질문 섹션 이후에 추가
+        response[offset++] = (byte) 0xc0; // 이름 (압축 포인터)
+        response[offset++] = 0x0c;
+        response[offset++] = 0x00; // 유형 (A 레코드)
+        response[offset++] = 0x01;
+        response[offset++] = 0x00; // 클래스 (IN)
+        response[offset++] = 0x01;
+        response[offset++] = 0x00; // TTL (Time-To-Live): 300초
+        response[offset++] = 0x00;
+        response[offset++] = 0x01;
+        response[offset++] = 0x2c;
+        response[offset++] = 0x00; // 데이터 길이: 4바이트
+        response[offset++] = 0x04;
+        response[offset++] = (byte) 192; // 가짜 IP 주소: 192.168.0.100
+        response[offset++] = (byte) 168;
+        response[offset++] = 0x00;
+        response[offset++] = 0x64;
+
+        return response; // 생성된 가짜 응답 반환
+    }
+}
+
+```
+
+- UDP 포트를 열어 클라이언트의 요청을 수신하고, 가짜 응답을 반환한다.
+- 가짜 응답에는 요청된 도메인 이름과 가짜 IP 주소(예: `192.168.0.100`)가 포함된다.
+
+### DNS Client 코드 구현
+
+```java
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+
+public class DNSClient {
+
+    public static void main(String[] args) {
+        try (DatagramSocket socket = new DatagramSocket()) { // DNS 요청을 보낼 UDP 소켓 생성
+            byte[] request = createDNSQuery("example.com"); // DNS 요청 생성
+
+            // DNS 서버로 요청 전송 (127.0.0.1:53)
+            DatagramPacket packet = new DatagramPacket(
+                    request, request.length, InetAddress.getByName("127.0.0.1"), 53
+            );
+            socket.send(packet);
+
+            // DNS 응답 수신
+            byte[] buffer = new byte[512]; // 응답을 받을 버퍼
+            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+            socket.receive(response); // 응답 수신
+
+            // 응답 데이터 출력
+            System.out.println("DNS 응답: " + new String(response.getData()));
+        } catch (Exception e) {
+            e.printStackTrace(); // 예외 발생 시 스택 트레이스 출력
+        }
+    }
+
+    // DNS 요청 생성
+    private static byte[] createDNSQuery(String domain) {
+        byte[] query = new byte[512]; // 요청 데이터 버퍼
+        query[0] = 0x12; // 트랜잭션 ID (랜덤 값)
+        query[1] = 0x34;
+        query[2] = 0x01; // QR=0 (질문), Opcode=0 (표준 쿼리)
+        query[3] = 0x00;
+        query[4] = 0x00; // QDCOUNT (질문 수): 1
+        query[5] = 0x01;
+        query[6] = 0x00; // ANCOUNT (응답 수): 0
+        query[7] = 0x00;
+        query[8] = 0x00; // NSCOUNT (권한 기록 수): 0
+        query[9] = 0x00;
+        query[10] = 0x00; // ARCOUNT (추가 기록 수): 0
+        query[11] = 0x00;
+
+        // 도메인 이름을 요청 데이터에 추가
+        String[] labels = domain.split("\\."); // 도메인을 점(.)으로 분리
+        int offset = 12; // 도메인 이름 추가 시작 위치
+        for (String label : labels) {
+            query[offset++] = (byte) label.length(); // 라벨 길이
+            for (char c : label.toCharArray()) {
+                query[offset++] = (byte) c; // 라벨 데이터
+            }
+        }
+        query[offset++] = 0x00; // 도메인 이름 끝
+
+        // 유형 및 클래스 추가
+        query[offset++] = 0x00; // 유형 (A 레코드)
+        query[offset++] = 0x01;
+        query[offset++] = 0x00; // 클래스 (IN)
+        query[offset++] = 0x01;
+
+        return query; // 생성된 요청 반환
+    }
+}
+```
+
+- 클라이언트는 특정 도메인 이름에 대한 DNS 요청을 생성하고 서버로 전송한다.
+- 서버에서 받은 응답 데이터를 출력한다.
+
+### DNS Spoofing 서버와 클라이언트의 출력
+
+1. `DNSSpoofingServer`를 실행하여 DNS 스푸핑 서버를 시작한다.
+2. `DNSClient`를 실행하여 요청을 보낸다.
+3. 클라이언트가 받은 응답에 가짜 IP 주소가 포함되었는지 확인하는 것이다.
+
+**서버 출력**:
+
+```
+DNS 스푸핑 서버 실행 중...
+스푸핑 응답 전송: /127.0.0.1
+```
+
+**클라이언트 출력**:
+
+```java
+도메인 example.com의 IP 주소: 192.168.1.100
+```
+
+- 서버는 가짜 응답 데이터를 생성하고, 클라이언트는 이를 정상적으로 출력한다.
+- 클라이언트가 출력하는 IP 주소는 서버에서 설정한 가짜 IP 주소(`192.168.1.100`) 이다.
+
+## DNS 캐시 포이즈닝 (DNS Cache Poisoning)
+
+```java
+캐싱 DNS 서버에 가짜 데이터를 삽입해, 이후 다수의 요청을 악성 IP로 유도한다.
+```
+
+DNS 캐시 포이즈닝은 공격자가 **`캐싱 네임서버의 캐시에 악성 IP 주소를 주입`**하여, 이후 해당 도메인에 대한 요청이 가짜 사이트로 연결되도록 하는 공격이다.
+
+- **`발생 원인**:` 캐싱 네임서버가 신뢰할 수 없는 DNS 응답을 받아들일 때 발생한다. 특히, 캐싱 네임서버가 무작위로 생성된 포트를 사용하지 않거나, 요청과 응답의 트랜잭션 ID가 예측 가능한 경우 공격에 취약하다.
+- **해결 방법**:
+  - **`랜덤 소스 포트 사용`** 및 **`트랜잭션 ID의 무작위화`**를 통해 공격자가 캐시를 오염시키기 어렵게 만든다.
+  - **`DNSSEC`**을 도입하여, DNS 응답이 유효한지 디지털 서명을 통해 검증할 수 있도록 한다.
+
+### DNS Cache Poisoning Server 코드 구현
+
+```java
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.util.HashMap;
+import java.util.Map;
+
+public class DNSCachePoisoningServer {
+
+    // 캐시 저장소: 도메인 이름 -> IP 주소
+    private static final Map<String, String> cache = new HashMap<>();
+
+    public static void main(String[] args) {
+        try (DatagramSocket socket = new DatagramSocket(53)) { // 53번 포트로 UDP 소켓 생성 (DNS 기본 포트)
+            System.out.println("DNS 캐시 포이즈닝 서버 실행 중...");
+
+            byte[] buffer = new byte[512]; // 요청 데이터 버퍼
+            while (true) {
+                DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+                socket.receive(request); // 클라이언트로부터 요청 수신
+
+                // 요청에서 도메인 이름 추출
+                String domain = extractDomainName(request.getData());
+                System.out.println("도메인 요청 수신: " + domain);
+
+                // 캐시에서 응답 찾기
+                String ipAddress = cache.computeIfAbsent(domain, d -> poisonCache(d));
+
+                // 가짜 응답 생성
+                byte[] response = createFakeResponse(request.getData(), ipAddress);
+
+                // 클라이언트에 응답 전송
+                DatagramPacket responsePacket = new DatagramPacket(
+                        response, response.length, request.getAddress(), request.getPort()
+                );
+                socket.send(responsePacket);
+
+                System.out.println("응답 전송: " + domain + " -> " + ipAddress);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 캐시에 악성 데이터 삽입
+    private static String poisonCache(String domain) {
+        if ("example.com".equals(domain)) {
+            return "192.168.1.100"; // 가짜 IP 주소
+        }
+        return "1.1.1.1"; // 기본 IP 주소 (정상적인 도메인 요청)
+    }
+
+    // 가짜 DNS 응답 생성
+    private static byte[] createFakeResponse(byte[] request, String ipAddress) {
+        byte[] response = new byte[512]; // 응답 데이터 버퍼
+
+        // 트랜잭션 ID 복사
+        response[0] = request[0];
+        response[1] = request[1];
+        response[2] = (byte) 0x81; // QR=1 (응답), Opcode=0 (표준 쿼리)
+        response[3] = (byte) 0x80; // 정상 응답
+        response[4] = 0x00; // QDCOUNT (질문 수): 1
+        response[5] = 0x01;
+        response[6] = 0x00; // ANCOUNT (응답 수): 1
+        response[7] = 0x01;
+        response[8] = 0x00; // NSCOUNT (권한 섹션 수): 0
+        response[9] = 0x00;
+        response[10] = 0x00; // ARCOUNT (추가 섹션 수): 0
+        response[11] = 0x00;
+
+        // 질문 섹션 복사
+        System.arraycopy(request, 12, response, 12, request.length - 12);
+
+        // 응답 섹션 추가
+        int offset = request.length; // 질문 섹션 끝 이후부터 작성
+        response[offset++] = (byte) 0xc0; // 이름 (압축 포인터)
+        response[offset++] = 0x0c;
+        response[offset++] = 0x00; // 유형 (A 레코드)
+        response[offset++] = 0x01;
+        response[offset++] = 0x00; // 클래스 (IN)
+        response[offset++] = 0x01;
+        response[offset++] = 0x00; // TTL (Time-To-Live): 300초
+        response[offset++] = 0x00;
+        response[offset++] = 0x01;
+        response[offset++] = 0x2c;
+        response[offset++] = 0x00; // 데이터 길이: 4바이트
+        response[offset++] = 0x04;
+
+        // IP 주소 추가
+        String[] ipParts = ipAddress.split("\\.");
+        for (String part : ipParts) {
+            response[offset++] = (byte) Integer.parseInt(part);
+        }
+
+        return response; // 생성된 응답 반환
+    }
+
+    // DNS 요청에서 도메인 이름 추출
+    private static String extractDomainName(byte[] request) {
+        StringBuilder domain = new StringBuilder();
+        int i = 12; // 도메인 이름 시작 위치
+        while (request[i] != 0) { // 도메인 이름의 끝은 null(0x00)
+            int length = request[i++];
+            for (int j = 0; j < length; j++) {
+                domain.append((char) request[i++]);
+            }
+            if (request[i] != 0) {
+                domain.append(".");
+            }
+        }
+        return domain.toString();
+    }
+}
+
+```
+
+요청된 도메인에 대한 응답을 캐시에 저장하며, 특정 도메인(`example.com`)에 대해 가짜 IP 주소를 반환하도록 한다.
+
+- **캐시 구조**:
+  - `Map<String, String>`을 사용해 도메인 이름과 IP 주소를 저장한다.
+  - 요청된 도메인이 캐시에 없으면, `poisonCache()`를 호출해 캐시에 데이터를 추가한다.
+- **가짜 응답**:
+  - 도메인이 `example.com`이면 `192.168.1.100`을 반환(가짜 데이터).
+  - 그 외에는 정상적인 IP 주소(`1.1.1.1`)를 반환한다.
+- **도메인 이름 추출**:
+  - 요청 데이터에서 도메인 이름을 추출하기 위해 DNS 질문 섹션의 형식을 파싱한다.
+- **응답 생성**:
+  - 질문 섹션은 요청 데이터를 그대로 복사한다.
+  - 응답 섹션에 가짜 IP 주소를 포함하여 응답 데이터 생성한다.
+
+### **테스트 방법**
+
+1. `DNSCachePoisoningServer`를 실행한다.
+2. 클라이언트(예: `nslookup example.com 127.0.0.1`)로 DNS 요청을 보낸다.
+3. 캐시에 가짜 IP 주소(`192.168.1.100`)가 삽입된 것을 확인한다.
+
+### DNS Client 코드 구현
+
+```java
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+
+public class DNSClient {
+
+    public static void main(String[] args) {
+        try (DatagramSocket socket = new DatagramSocket()) { // 클라이언트용 UDP 소켓 생성
+            String domain = "example.com"; // 요청할 도메인
+            byte[] request = createDNSQuery(domain); // DNS 요청 생성
+
+            // DNS 서버로 요청 전송 (127.0.0.1:53 - 로컬 캐시 포이즈닝 서버)
+            DatagramPacket packet = new DatagramPacket(
+                    request, request.length, InetAddress.getByName("127.0.0.1"), 53
+            );
+            socket.send(packet); // 요청 전송
+
+            // DNS 응답 수신
+            byte[] buffer = new byte[512]; // 응답 데이터를 받을 버퍼
+            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+            socket.receive(response); // 응답 수신
+
+            // 응답 데이터 출력
+            String ipAddress = extractIPAddress(response.getData());
+            System.out.println("도메인 " + domain + "의 IP 주소: " + ipAddress);
+        } catch (Exception e) {
+            e.printStackTrace(); // 예외 발생 시 스택 트레이스 출력
+        }
+    }
+
+    // DNS 요청 생성
+    private static byte[] createDNSQuery(String domain) {
+        byte[] query = new byte[512]; // 요청 데이터 버퍼 생성
+        query[0] = 0x12; // 트랜잭션 ID (랜덤 값)
+        query[1] = 0x34;
+        query[2] = 0x01; // QR=0 (질문), Opcode=0
+        query[3] = 0x00;
+        query[4] = 0x00; // QDCOUNT (질문 수): 1
+        query[5] = 0x01;
+        query[6] = 0x00; // ANCOUNT (응답 수): 0
+        query[7] = 0x00;
+        query[8] = 0x00; // NSCOUNT (권한 섹션 수): 0
+        query[9] = 0x00;
+        query[10] = 0x00; // ARCOUNT (추가 섹션 수): 0
+        query[11] = 0x00;
+
+        // 도메인 이름 추가
+        String[] labels = domain.split("\\."); // 도메인을 점(.)으로 분리
+        int offset = 12; // 도메인 이름 추가 시작 위치
+        for (String label : labels) {
+            query[offset++] = (byte) label.length(); // 라벨 길이 추가
+            for (char c : label.toCharArray()) {
+                query[offset++] = (byte) c; // 라벨 데이터 추가
+            }
+        }
+        query[offset++] = 0x00; // 도메인 이름 끝
+
+        // 유형과 클래스 추가
+        query[offset++] = 0x00; // 유형 (A 레코드)
+        query[offset++] = 0x01;
+        query[offset++] = 0x00; // 클래스 (IN)
+        query[offset++] = 0x01;
+
+        return query; // 생성된 요청 반환
+    }
+
+    // 응답 데이터에서 IP 주소 추출
+    private static String extractIPAddress(byte[] response) {
+        int answerStart = 12; // 응답 데이터의 시작 위치
+        while (response[answerStart] != 0) { // 질문 섹션의 끝으로 이동
+            answerStart += response[answerStart] + 1;
+        }
+        answerStart += 5; // 질문 섹션 끝 다음 위치로 이동
+
+        // IP 주소 추출 (마지막 4바이트)
+        int ipStart = answerStart + 10; // 데이터 섹션 시작 위치
+        return (response[ipStart] & 0xFF) + "." +
+               (response[ipStart + 1] & 0xFF) + "." +
+               (response[ipStart + 2] & 0xFF) + "." +
+               (response[ipStart + 3] & 0xFF);
+    }
+}
+
+```
+
+### **코드 설명**
+
+1. **DNS 요청 생성**:
+ - `createDNSQuery()` 메서드는 도메인 이름을 기반으로 DNS 요청 패킷을 생성한다.
+ - 요청 형식은 트랜잭션 ID, 도메인 이름, 유형(A 레코드) 및 클래스(IN)로 구성된다.
+2. **DNS 응답 수신**:
+ - 서버로부터 받은 응답 데이터를 처리하고, `extractIPAddress()` 메서드를 통해 응답에서 IP 주소를 추출한다.
+3. **IP 주소 추출**:
+ - DNS 응답에서 질문 섹션을 건너뛰고, 응답 섹션에서 A 레코드의 IP 주소를 추출한다.
+4. **출력 결과**:
+ - 응답 데이터를 기반으로 도메인에 매핑된 IP 주소를 출력한다.
+
+### **테스트 방법**
+
+1. **DNSCachePoisoningServer** 실행:
+ - `DNSCachePoisoningServer`를 실행하여 DNS 캐시 포이즈닝 서버를 시작한다.
+2. **DNSClient 실행**:
+ - `DNSClient`를 실행하여 `example.com`에 대한 DNS 요청을 보낸다.
+3. **결과 확인**:
+ - 콘솔에 출력된 IP 주소가 `DNSCachePoisoningServer`에서 설정한 가짜 IP 주소(`192.168.1.100`)인지 확인한다.
+
+**서버 출력**:
+
+```
+DNS 캐시 포이즈닝 서버 실행 중...
+악성 응답 전송: example.com -> 192.168.1.100
+```
+
+**클라이언트 출력**:
+
+```java
+도메인 example.com의 IP 주소: 93.184.216.34
+```
+
+**DNSClient 실행 (캐시 오염 후)**:
+
+```java
+도메인 example.com의 IP 주소: 192.168.1.100
+```
+
+- **캐시 오염 전**: 클라이언트는 정상적인 IP 주소를 반환 받는다.
+- **캐시 오염 후**: 클라이언트는 공격자가 설정한 가짜 IP 주소를 반환 받는다.
+
+## 로컬 DNS
+
+로컬 DNS 서버는 네트워크 내에서 사용자들의 `도메인 이름 요청을 관리`하고 `처리`하는 `역할`을 한다. 요청된 도메인에 대한 IP 주소가 캐시에 저장되어 있는 경우, `로컬 DNS 서버는 외부 네임서버에 추가 요청을 하지 않고 즉시 응답`할 수 있다. 그렇게 한다면 다음과 같은 장점을 제공한다.
+
+- **`응답 속도 향상**:` 자주 요청되는 도메인의 IP 주소가 로컬 DNS 서버에 캐시되어 있기 때문에 웹사이트 접근 속도가 빨라진다.
+- **`대역폭 절약**:` 외부 DNS 서버와의 트래픽을 줄여 네트워크 대역폭을 절약할 수 있다.
+- **`중앙 관리**:` 조직이나 ISP는 로컬 DNS 서버를 통해 네트워크 내 DNS 요청을 중앙에서 관리할 수 있다.
+
+### 로컬 DNS 캐싱.
+
+- 로컬 DNS 서버는 `특정 기간 동안` IP 주소를 캐시에 저장하는데, 이 기간을 `TTL(Time-To-Live)`이라고 한다.
+- TTL이 지나면 캐시가 만료되어, 로컬 DNS 서버는 해당 도메인 이름의 새로운 IP 주소를 다시 조회해야 하는 것이다.
+
+### 로컬 DNS와 다른 DNS 서버의 차이점.
+
+로컬 DNS 서버는 사용자가 접속하는 `첫 번째 DNS 서버`라는 점에서 `차별화`된다.
+
+예를 들어.
+
+- 로컬 DNS는 `사용자`와 `가장 가까운 위치`에서 `캐싱`을 수행하며, 주로 `ISP나 회사 네트워크` 내에서 설정되어 있다.
+- 권한 있는 네임서버는 도메인 이름이 소속된 서버에서 `직접 관리`된다.
+- 루트 서버 및 TLD 서버는 도메인 계층을 찾기 위해 요청을 더 낮은 계층으로 전달하는 역할을 한다.
+
+캐시를 사용하지 않고 모든 DNS 요청을 상위 계층 서버로 전달한다면 `네트워크 부하가 증가`하고, `응답 시간도 느려지게` 된다. 따라서 모든 DNS 서버는 캐시를 활용하여 반복적인 요청을 최적화하는 것이다.
+
+로컬 DNS의 캐시 기능이 `특별한 이유`는, `사용자의 웹 요청에 가장 빠르게 응답`할 수 있고, `외부 네임서버에 불필요한 요청을 줄일 수 있기 때문`이다.
+
+## CNAME (Canonical Name)란?
+
+![image.png](/public/static/images/이미지4.png)
+
+DNS에서 **`별칭을 설정하는 레코드`**로, 하나의 도메인 이름을 다른 도메인 이름으로 연결하는 데 사용한다. 즉, **`한 도메인을 다른 도메인의 별칭으로 설정`**하여, 여러 도메인 이름이 동일한 IP 주소를 가리키도록 할 때 유용한것이다.
+
+### CNAME의 예시 사용
+
+- `blog.naver.com`이 `naver.com`의 CNAME으로 설정되어 있다면, 사용자가 `blog.naver.com`을 방문할 때 실제로는 `naver.com`으로 연결 되는 것이다.
+
+요약하자면, **`CNAME 레코드는 하나의 도메인 이름을 다른 도메인 이름의 별칭으로 설정하여, 여러 도메인이 동일한 웹 서버나 서비스로 연결될 수 있도록 돕는 DNS 레코드`**인것이다.
+
+- 이를 통해 도메인 관리를 더 쉽게 하고, 서비스의 IP 주소 변경에도 유연하게 대처할 수 있다.
