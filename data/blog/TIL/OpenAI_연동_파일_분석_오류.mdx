@@ -1,7 +1,7 @@
 ---
 title: 'OpenAI 연동 & 파일분석 오류 해결 개인적인 정리'
 date: '2024-11-22'
-tags: ['HTTP', '네트워크', 'OpenAI']
+tags: ['HTTP', '네트워크', 'AI']
 draft: false
 summary: 'API 오류와 파일 처리 문제를 해결하며 연동 개선 방안을 탐구한 기록'
 ---
@@ -37,6 +37,8 @@ summary: 'API 오류와 파일 처리 문제를 해결하며 연동 개선 방�
 
 - 그리하여, OpenAI API `크레딧을 $5.00 (세금 포함 $5.50) 충전`하고 `새로운 API 키를 생성`하여 문제를 해결할 수 있었다. (=API 요청을 성공적으로 완료)
 
+<br/>
+
 ## OpenAI의 응답이 잘려 나오는 현상.
 
 OpenAI의 API에서 응답이 잘려서 나오는 문제는 `max_tokens` 값에 의해 제한되기 때문에 발생했다. `max_tokens`는 API 요청에 대해 모델이 생성할 수 있는 최대 토큰 수를 말한다. OpenAI 모델은 현재 설정으로 최대 16,385 토큰까지만 처리할 수 있다.
@@ -70,6 +72,8 @@ OpenAI에서 사용하는 '토큰'은 뭐야?
     - 요청하는 데이터의 길이를 줄여 `전체 토큰 수가 16,385 토큰`을 넘지 않도록 조정하도록 한다.
 - `분할 요청:`
     - 만약 처리해야 할 데이터가 많다면, `데이터를 여러 부분으로 나누어 각 부분을 별도의 요청으로 처리`하는 방법을 고려해 볼 수 있다.
+
+<br/>
 
 ## 파일을 업로드하여, 텍스트로 변환하는 이유.
 
@@ -106,6 +110,8 @@ OpenAI에서 사용하는 '토큰'은 뭐야?
     - 추출 정확성을 높이기 위해 `Tika의 설정을 조정`하거나, `텍스트 추출 전 전처리 단계를 추가`할 생각을 했다.
     - `ex) 이미지 내 텍스트 추출을 위해서는 OCR 기술을 결합할 수 있다는 것이다.`
 
+<br/>
+
 ## Tesseract OCR과 Apache Tika의 차이와 연동
 
 ### Tesseract OCR의 기능
@@ -130,6 +136,8 @@ OpenAI에서 사용하는 '토큰'은 뭐야?
     - Tesseract는 `이미지 데이터를 처리`하는 반면, Tika는 `이미지, 비디오, 텍스트 파일` 등 거의 `모든 디지털 파일 형식을 처리`할 수 있습니다.
 
 `두 기술은 함께 사용`될 수 있으며, Tika를 사용해 파일 형식을 확인하고, 적절한 파일에서 Tesseract를 사용하여 이미지 내의 텍스트를 추출하는 등의 작업을 조합하면 `더 효율적인 문서 처리 방법`이라고 볼 수 있을 것이다.
+
+<br/>
 
 ## 파일 처리 중 오류 발생(=FileNotFoundException)
 
@@ -167,6 +175,9 @@ java.io.FileNotFoundException: class path resource [tessdata] cannot be resolved
     - 임시 파일 생성 후 사용이 끝난 경우, 이를 삭제하는 로직을 추가해야 한다고 생각한다.
     - 그리하면 시스템의 자원을 효율적으로 사용할 것이고, 보안 문제를 예방할 수 있다고 생각한다.
 
+
+<br/>
+
 ## 메모리 접근 문제 해결(=Invalid memory access)
 
 Tesseract OCR 라이브러리를 사용하면서 `"Invalid memory access"` 오류가 발생했다. 이것은, `Java Native Access (JNA) 라이브러리`를 통한 네이티브 메서드 호출 시 메모리 접근이 잘못되어 발생한 문제였다. 이 문제의 원인으로는 `잘못된 데이터 경로 설정`, `메모리 관리 이슈`, `라이브러리 버전 충돌` 등이 있었다.
@@ -200,6 +211,8 @@ java.lang.Error: Invalid memory access
     - `ex) implementation 'net.java.dev.jna:jna:5.10.0'` (최신 JNA 버전으로 업데이트)
 - `환경 변수 및 경로 설정 검토:`
     - `TESSDATA_PREFIX` 환경 변수를 정확히 설정하여 Tesseract가 `tessdata` 경로를 찾을 수 있도록 했다. 필요한 경우, 경로 설정을 검토하여 오류를 수정한다.
+
+<br/>
 
 ## 의존성 주입 문제 해결(=Error creating bean)
 
@@ -236,6 +249,8 @@ org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating
 - `리소스 관리 최적화:`
     - `tessdata` 파일을 `src/main/resources`에 위치시키고, Spring의 리소스 로더를 통해 접근하도록 설정한다. 리소스 접근의 표준화를 통해 오류 가능성을 줄일 것이다.
 
+<br/>
+
 ## 파일 업로드 중 발생한 헤더 정보 오류 해결.
 
 파일 업로드 과정에서 `.txt` 파일 처리 중 `"Header doesn't contain versioninfo"` 오류가 발생했다.이 오류는 `파일의 헤더가 예상된 정보를 포함하고 있지 않을 때` 발생한다. 일반적으로 이 문제는 파일이 올바르지 않거나, `다른 형식`일 때 발생할 수 있다.
@@ -271,6 +286,8 @@ org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating
 - `FileUploadController 로직 수정:`
     - 내의 파일 처리 로직을 수정하여, Tesseract가 처리할 수 있는 파일 형식에 대한 명확한 검증을 수행한다.
     - 또한, 이미지 파일이 아닌 경우 적절한 예외 처리를 통해 사용자에게 안내 메시지를 제공하는 것이다.
+
+<br/>
 
 ## OpenAI API 호출 관련 에러 해결.
 
@@ -388,6 +405,8 @@ org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating
   "system_fingerprint": null
 }
 ```
+
+<br/>
 
 ## 여기서 몇 가지 주요 정보를 살펴보면
 
