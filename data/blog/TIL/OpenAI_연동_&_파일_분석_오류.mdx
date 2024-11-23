@@ -1,0 +1,403 @@
+---
+title: 'OpenAI 연동 & 파일분석 오류 해결 개인적인 정리'
+date: '2024-11-22'
+tags: ['HTTP', '네트워크', 'OpenAI']
+draft: false
+summary: 'API 오류와 파일 처리 문제를 해결하며 연동 개선 방안을 탐구한 기록'
+---
+
+## '429 Too Many Requests' 오류 발생.
+
+### Keep (지속할 것)
+
+- `API 연동 성공:`
+    - Spring Boot를 사용하여 OpenAI GPT API와 성공적으로 통신할 수 있었다.
+    - 이 연결은 `프로젝트의 핵심 기능`으로, 이력서 피드백을 제공 해주기에 `필수적`이다.
+
+### Problem (문제라고 생각하는 것)
+
+- `'429 Too Many Requests' 오류 발생:`
+    - API 요청 한도를 초과하여 자주 발생하는 오류이다.
+    - 사용자의 요청이 API 사용 한도를 초과했기 때문에 발생한다.
+
+    ![image.png](/static/images/이미지5.png)
+
+
+### Try (문제를 바탕으로 시도할 것)
+
+![image.png](/static/images/이미지6.png)
+
+- `'429 Too Many Requests' 오류 발생:` '429 Too Many Requests' 오류는 API 요청 한도를 초과했을 때 발생하는 문제이다.
+- 이 오류는 `사용자가 할당된 API 사용 한도를 초과했음을 의미했다.`
+- 이상하게도 API 요청을 보내지 않았는데 한도를 초과했다는 메시지가 나와 이에 대해 검색을 해봤는데, 특히 `월간 최대 소비량에 도달했다는걸 이해할 수 있었다.`
+
+- 그리하여, OpenAI API `크레딧을 $5.00 (세금 포함 $5.50) 충전`하고 `새로운 API 키를 생성`하여 문제를 해결할 수 있었다. (=API 요청을 성공적으로 완료)
+
+## OpenAI의 응답이 잘려 나오는 현상.
+
+OpenAI의 API에서 응답이 잘려서 나오는 문제는 `max_tokens` 값에 의해 제한되기 때문에 발생했다. `max_tokens`는 API 요청에 대해 모델이 생성할 수 있는 최대 토큰 수를 말한다. OpenAI 모델은 현재 설정으로 최대 16,385 토큰까지만 처리할 수 있다.
+
+```java
+OpenAI에서 사용하는 '토큰'은 뭐야?
+
+자연어 처리에서 데이터를 처리하는 단위로 사용된다.
+토큰은 단어나 구, 또는 문장 부호를 포함할 수 있는 작은 문자열 조각이다.
+```
+
+### Keep (지속할 것)
+
+- `적절한 max_tokens 설정 유지:`
+    - API를 사용할 때는 응답의 길이를 적절히 조절하기 위해 `max_tokens` 값을 적절히 설정하는 것이 중요하다.
+    - 이 설정은 모델이 제공할 수 있는 `정보의 양`을 결정짓는 중요한 부분이다.
+
+### Problem (문제라고 생각하는 것)
+
+- `응답 잘림 문제:`
+    - max_tokens 값이 `너무 낮으면 필요한 정보`를 모두 받지 못할 수 있다.
+    - `반대로 너무 높으면 비효율적인 처리가 발생`할 수 있으며, `토큰 한도에 도달`하여 `응답이 중간에 잘리는 현상`이 있었다.
+
+    ![image.png](/static/images/이미지7.png)
+
+    - `"400 Bad Request"`로, API 요청이 실패한 상태일때 에러가 발생했다. 구체적으로는 `"context_length_exceeded"` 오류로, `요청한 토큰의 수가 모델의 최대 컨텍스트 길이, 즉 16,385 토큰을 초과했기 때문에 발생한 것이다.` 즉, 사용자가 요청한 내용이 너무 길어 API가 처리할 수 있는 범위를 벗어났다는 것을 의미한다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `요청 데이터 줄이기:`
+    - 요청하는 데이터의 길이를 줄여 `전체 토큰 수가 16,385 토큰`을 넘지 않도록 조정하도록 한다.
+- `분할 요청:`
+    - 만약 처리해야 할 데이터가 많다면, `데이터를 여러 부분으로 나누어 각 부분을 별도의 요청으로 처리`하는 방법을 고려해 볼 수 있다.
+
+## 파일을 업로드하여, 텍스트로 변환하는 이유.
+
+`다양한 형식의 문서나 이미지 파일에서 텍스트 데이터를 추출`하고 활용하려면, `원본 파일`을 쉽게 처리하고 분석할 수 있는 형태로 변환해야 한다. `Apache Tika 라이브러리`를 사용하는 이유는 그 다양한 `파일 형식을 지원`하고, `텍스트 추출 기능`이 효과적이기 때문입니다.
+
+```java
+"Apache Tika"는 어떤 기술이야?
+
+다양한 소스에서 콘텐츠와 메타데이터를 추출하는데 사용되는 라이브러리이다.
+
+자바로 작성되었으며, 다양한 파일 형식(예: PDF, DOCX, XLS, PPT, 이미지 파일 등)에서
+텍스트 및 메타데이터를 추출할 수 있는 도구이다.
+```
+
+### Keep (지속할 것)
+
+- `Apache Tika 사용:`
+    - Apache Tika는 `다양한 파일 형식에서 텍스트를 추출`할 수 있는 라이브러리이다.
+    - 해당 형식에 맞게 텍스트를 추출하는 기능을 제공 해준다.
+    - 이 기능은 프로젝트에서 텍스트 기반 처리가 필요한 순간에 필수적이다.
+
+### Problem (문제라고 생각하는 것)
+
+- `텍스트 추출의 정확성 문제:`
+    - 일부 복잡한 파일 형식에서는 Apache Tika를 사용하여도 텍스트 추출이 완벽하지 않을 수 있다.
+    - 특히 포맷이 복잡하거나, 텍스트가 이미지로 포함된 경우 정확한 추출이 어려울 수 있다는 점이다.
+- `처리 성능 문제:`
+    - 대량의 데이터나 큰 파일을 처리할 때 성능 저하가 발생할 수 있다는 것이다.
+    - 특히 대용량 파일을 처리하는 경우 메모리 사용량이 증가하고, 처리 시간이 길어질 수 있다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `텍스트 추출 정확성 개선:`
+    - 추출 정확성을 높이기 위해 `Tika의 설정을 조정`하거나, `텍스트 추출 전 전처리 단계를 추가`할 생각을 했다.
+    - `ex) 이미지 내 텍스트 추출을 위해서는 OCR 기술을 결합할 수 있다는 것이다.`
+
+## Tesseract OCR과 Apache Tika의 차이와 연동
+
+### Tesseract OCR의 기능
+
+- `Tesseract OCR 대해서:`
+    - 이미지 파일 내의 `텍스트를 인식하고 추출`하는 데 사용된다.
+    - Tesseract는 다양한 언어를 지원하며, `스캔된 문서`, `사진 속 텍스트` 등 다양한 `이미지 소스에서 텍스트` 데이터를 추출할 수 있다.
+- `tessdata의 역할:`
+    - Tesseract의 핵심 구성 요소인 `tessdata` 폴더에는 언어별 데이터 파일(.traineddata)이 포함되어 있다.
+    - 즉, `각 언어의 문자 인식을 위한 필수 정보(문자 패턴, 언어 규칙 등)를 담고 있다.`
+
+### Apache Tika의 기능
+
+`Apache Tika 대해서:` 파일 콘텐츠와 메타데이터 추출 라이브러리로, 다양한 파일 형식`(PDF, Microsoft Office 문서, 이미지 파일 등)`에서 데이터를 추출할 수 있다. Tika는 형식 감지와 콘텐츠 추출 능력을 제공하며, `파일 내의 텍스트뿐만` 아니라 `메타데이터도 추출`할 수 있다.
+
+### 두 기술의 차이점
+
+- `목적과 사용:`
+    - Tesseract는 주로 이미지에서 텍스트를 추출하는 `OCR 작업에 특화`되어 있다.
+    - 반면, Tika는 `다양한 파일 형식에서 텍스트와 메타데이터`를 추출하는 데 사용된다.
+- `처리 데이터:`
+    - Tesseract는 `이미지 데이터를 처리`하는 반면, Tika는 `이미지, 비디오, 텍스트 파일` 등 거의 `모든 디지털 파일 형식을 처리`할 수 있습니다.
+
+`두 기술은 함께 사용`될 수 있으며, Tika를 사용해 파일 형식을 확인하고, 적절한 파일에서 Tesseract를 사용하여 이미지 내의 텍스트를 추출하는 등의 작업을 조합하면 `더 효율적인 문서 처리 방법`이라고 볼 수 있을 것이다.
+
+## 파일 처리 중 오류 발생(=FileNotFoundException)
+
+### Keep (지속할 것)
+
+- `MIME 타입에 따른 파일 처리:`
+    - `file.getContentType()`을 사용하여 파일의 `MIME 타입`을 확인하고, 해당 타입에 맞는 처리를 하는 로직을 유지한다.
+    - 즉, 다양한 파일 유형을 효과적으로 관리할 수 있도록 돕는다.
+
+### Problem (문제라고 생각하는 것)
+
+![image.png](/static/images/이미지8.png)
+
+```java
+Uploaded file type: application/pdf
+java.io.FileNotFoundException: class path resource [tessdata] cannot be resolved to absolute file path because it does not reside in the file system: jar:file:/C:/Users/user/.gradle/caches/modules-2/files-2.1/net.sourceforge.tess4j/tess4j/4.5.4/a390ca518a5f73972923c552926bfa4ae04be8bd/tess4j-4.5.4.jar!/tessdata
+	at org.springframework.util.ResourceUtils.getFile(ResourceUtils.java:222)
+	at org.springframework.core.io.AbstractFileResolvingResource.getFile(AbstractFileResolvingResource.java:173)
+	at com.jobprep.resume_feedback.service.OcrService.extractTextFromPdfWithOcr(OcrService.java:47)
+	at com.jobprep.resume_feedback.controller.FileUploadController.uploadFile(FileUploadController.java:56)
+```
+
+- `Tessdata 경로 문제:`
+    - `ClassPathResource`를 사용하여 `tessdata` 디렉토리를 절대 파일 경로로 해석하려 했으나, JAR 파일 내부에 위치해 있어 `FileNotFoundException`이 발생했다.
+- `임시 파일 관리:`
+    - PDF 파일 처리를 위해 생성된 임시 파일이 시스템에 남아 `불필요한 자원` 사용을 초래할 수도 있겠다는 생각이 들었다.
+    - 즉, `임시 파일`이 관리되지 않고 삭제되고 있지 않기 때문이다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `InputStream 사용:`
+    - `ClassPathResource`와 같이 JAR 내부 리소스를 처리할 때는 `InputStream`을 사용해야 한다.
+    - Tesseract 설정에서 `tessdata` 디렉토리를 직접 파일 경로로 지정하는 대신, 스트림을 통해 접근하도록 로직을 변경할 필요가 있었다.
+- `임시 파일 정리 로직 추가:`
+    - 임시 파일 생성 후 사용이 끝난 경우, 이를 삭제하는 로직을 추가해야 한다고 생각한다.
+    - 그리하면 시스템의 자원을 효율적으로 사용할 것이고, 보안 문제를 예방할 수 있다고 생각한다.
+
+## 메모리 접근 문제 해결(=Invalid memory access)
+
+Tesseract OCR 라이브러리를 사용하면서 `"Invalid memory access"` 오류가 발생했다. 이것은, `Java Native Access (JNA) 라이브러리`를 통한 네이티브 메서드 호출 시 메모리 접근이 잘못되어 발생한 문제였다. 이 문제의 원인으로는 `잘못된 데이터 경로 설정`, `메모리 관리 이슈`, `라이브러리 버전 충돌` 등이 있었다.
+
+### Keep (지속할 것)
+
+- `네이티브 라이브러리의 사용:`
+    - Tesseract와 같은 OCR 라이브러리를 사용하여 이미지에서 텍스트를 추출하는 기능은 유지하되, 설정에 주의가 필요하다고 생각한다.
+
+### Problem (문제라고 생각하는 것)
+
+![image.png](/static/images/이미지9.png)
+
+```java
+java.lang.Error: Invalid memory access
+	at com.sun.jna.Native.invokePointer(Native Method) ~[jna-4.5.0.jar:4.5.0 (b0)]
+	at com.sun.jna.Function.invokePointer(Function.java:490) ~[jna-4.5.0.jar:4.5.0 (b0)]
+	at com.sun.jna.Function.invoke(Function.java:434) ~[jna-4.5.0.jar:4.5.0 (b0)]
+```
+
+- `라이브러리 호환성 문제:`
+    - 사용 중인 `tess4j`와 `JNA 라이브러리`의 `버전`이 최신이 아니여서 호환되지 않아, 에러가 발생했다.
+- `환경 설정 오류:`
+    - `TESSDATA_PREFIX` 환경 변수 설정이 잘못되어 있어서, Tesseract 데이터 경로가 정확하지 않아 메모리 접근 오류가 발생했다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `라이브러리 업데이트:`
+    - `tess4j`와 `JNA 라이브러리`를 최신 버전으로 업데이트하여 호환성 문제를 해결 했다.
+    - 최신 버전을 확인하고, `build.gradle` 파일에 새로운 버전을 적용 했다.
+    - `ex) implementation 'net.java.dev.jna:jna:5.10.0'` (최신 JNA 버전으로 업데이트)
+- `환경 변수 및 경로 설정 검토:`
+    - `TESSDATA_PREFIX` 환경 변수를 정확히 설정하여 Tesseract가 `tessdata` 경로를 찾을 수 있도록 했다. 필요한 경우, 경로 설정을 검토하여 오류를 수정한다.
+
+## 의존성 주입 문제 해결(=Error creating bean)
+
+스프링 부트 애플리케이션 실행 중 `FileUploadController`와 `OcrService` 사이의 의존성 문제로 인해 `ApplicationContext` 초기화에 실패하였다. `OcrService`의 초기화 중 `init` 메서드에서 예외가 발생하였으며, `tessdata` 디렉토리 내 `eng.traineddata` 파일의 접근 문제로 보였다.
+
+### Keep (지속할 것)
+
+- `의존성 주입 구조 유지:`
+    - 스프링의 의존성 주입을 통한 컴포넌트 관리는 계속 유지한다.
+
+### Problem (문제라고 생각하는 것)
+
+```java
+2024-09-25T02:52:18.001+09:00  WARN 752 --- [  restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'fileUploadController' defined in file [C:\study\resume-feedback\resume-feedback\out\production\classes\com\jobprep\resume_feedback\controller\FileUploadController.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'ocrService': Invocation of init method failed
+2024-09-25T02:52:18.003+09:00  INFO 752 --- [  restartedMain] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2024-09-25T02:52:18.014+09:00  INFO 752 --- [  restartedMain] .s.b.a.l.ConditionEvaluationReportLogger :
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2024-09-25T02:52:18.038+09:00 ERROR 752 --- [  restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'fileUploadController' defined in file [C:\study\resume-feedback\resume-\
+```
+
+- `파일 접근 오류:`
+    - 클래스 패스 리소스로 저장된 `eng.traineddata` 파일을 파일 시스템 경로로 해석하려 했던 접근 방식이 문제를 일으켰다.
+    - `JAR 파일 내부의 리소스`는 직접적인 파일 경로 접근이 불가능하는 것이였다.
+- `에러 진단 미흡:`
+    - 디버그 모드를 활성화하지 않아 문제 해결에 필요한 정보를 얻기 어려웠다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `InputStream을 통한 파일 접근:`
+    - `ClassPathResource`와 `InputStream`을 사용하여 JAR 내부의 리소스를 읽고, 필요하다면 임시 파일로 복사하여 Tesseract가 접근할 수 있게 한다.
+- `리소스 관리 최적화:`
+    - `tessdata` 파일을 `src/main/resources`에 위치시키고, Spring의 리소스 로더를 통해 접근하도록 설정한다. 리소스 접근의 표준화를 통해 오류 가능성을 줄일 것이다.
+
+## 파일 업로드 중 발생한 헤더 정보 오류 해결.
+
+파일 업로드 과정에서 `.txt` 파일 처리 중 `"Header doesn't contain versioninfo"` 오류가 발생했다.이 오류는 `파일의 헤더가 예상된 정보를 포함하고 있지 않을 때` 발생한다. 일반적으로 이 문제는 파일이 올바르지 않거나, `다른 형식`일 때 발생할 수 있다.
+
+### Keep (지속할 것)
+
+- `정확한 파일 형식 검증:`
+    - 파일 업로드 과정에서 파일 형식을 정확히 검증하는 로직을 유지한다.
+    - 시스템이 처리할 수 없는 파일이 전달되는 것을 방지하기 때문이다.
+
+### Problem (문제라고 생각하는 것)
+
+```java
+  POST "/upload", parameters={multipart}
+  Mapped to com.jobprep.resume_feedback.controller.FileUploadController#uploadFile(MultipartFile)
+  Using 'application/json', given and supported [application/json, application/+json]
+  Writing [{message=파일 처리 중 오류가 발생했습니다: Error: Header doesnt contain versioninfo}]
+  Completed 500 INTERNAL_SERVER_ERROR
+```
+
+
+- `헤더 정보 누락:`
+    - `"Header doesn't contain versioninfo"` 오류는 `.txt` 파일이 Tesseract OCR에 의해 처리되려 할 때 발생한다.
+    - `Tesseract는 이미지 파일을 대상으로 하는데`, 텍스트 파일 처리 시도로 인해 오류가 발생한 것이다.
+- `파일 타입 혼동:`
+    - 시스템이 `.txt` 파일을 `이미지 파일로 잘못 인식하고 OCR 처리를 시도`했다.
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `파일 타입 체크:`
+    - 파일 업로드 시 `MIME 타입`을 체크하여 이미지 파일만을 허용하도록 한다.
+    - 이를 통해 `.txt`와 같은 지원하지 않는 파일 형식이 처리되는 것을 방지할 것이다.
+- `FileUploadController 로직 수정:`
+    - 내의 파일 처리 로직을 수정하여, Tesseract가 처리할 수 있는 파일 형식에 대한 명확한 검증을 수행한다.
+    - 또한, 이미지 파일이 아닌 경우 적절한 예외 처리를 통해 사용자에게 안내 메시지를 제공하는 것이다.
+
+## OpenAI API 호출 관련 에러 해결.
+
+### Keep (지속할 것)
+
+- `API 키 보안 관리:`
+    - API 키를 환경 변수나 설정 파일에 저장하는 현재의 접근 방식을 계속 유지한다.
+    - 이 방법은 코드 내에서 API 키가 노출되지 않도록 보호하고, 보안성을 강화한다.
+- `정기적인 문서 확인:`
+    - OpenAI가 제공하는 문서를 주기적으로 검토하고, `API 모델의 업데이트`나 `사용 중지 정보`를 정기적으로 확인한다. 그렇다면 비활성화된 모델로 인한 실패를 방지할 수 있을 것이다.
+- `올바른 JSON 형식 유지:`
+    - API 요청 시 JSON 데이터를 올바르게 구성하고 인코딩하는 현재의 방식을 계속 유지한다.
+
+### Problem (문제라고 생각하는 것)
+
+- `잘못된 API 키 사용:`
+    - API 키가 올바르지 않거나 최신화되지 않아 발생하는 인증 실패이다.
+    - 이는 API 호출의 기본적인 인증 절차에서 문제가 되며, 정확한 키 관리가 필수적이다.
+
+    ```java
+    {
+        "error": {
+            "message": "Incorrect API key provided: \u003cYOUR_OP*********KEY\u003e. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": "invalid_api_key"
+        }
+    }
+    ```
+
+
+- `모델 사용 중지 및 필수 매개변수 누락:`
+    - API 모델이 지원 중단되거나, API 호출 시 필수 매개변수를 포함시키지 않아 오류가 발생했다.
+
+    ```java
+    {
+        "error": {
+            "message": "The model text-davinci-003 has been deprecated, learn more here: https://platform.openai.com/docs/deprecations",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": "model_not_found"
+        }
+    }
+    ```
+
+    ```java
+    {
+      "error": {
+        "message": "Missing required parameter: 'messages'.",
+        "type": "invalid_request_error",
+        "param": "messages",
+        "code": "missing_required_parameter"
+      }
+    }
+    ```
+
+
+- `JSON 파싱 오류:`
+    - JSON 형식이 잘못되어 API로부터 파싱할 수 없다는 오류가 발생했다.
+    - 데이터 포맷팅의 정확성 문제를 나타낸다.
+
+    ```java
+    {
+        "error": {
+            "message": "We could not parse the JSON body of your request. (HINT: This likely means you aren't using your HTTP library correctly. The OpenAI API expects a JSON payload, but what was sent was not valid JSON. If you have trouble figuring out how to fix this, please contact us through our help center at help.openai.com.)",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": null
+        }
+    }
+    ```
+
+
+### Try (문제를 바탕으로 시도할 것)
+
+- `API 키 점검 및 업데이트:`
+    - `OpenAI 계정`에서 발급받은 `API 키가 최신 상태`인지 확인한다.
+    - 필요하다면 새로운 키로 교체한다.
+- `모델 업데이트 및 파라미터 조정:`
+    - 사용 중인 OpenAI 모델의 지원 상태를 확인하고, 필요한 경우 최신 모델로 전환한다.
+    - 예를 들어, `GPT-3.5-turbo` 또는 `GPT-4`로 업데이트 한다.
+    - API 호출 시 필수 매개변수 `messages`를 포함시킨다.
+- `JSON 데이터 검증 강화:`
+    - API 호출 전에 JSON 데이터의 `구조와 형식을 검증할 수 있는 도구`를 사용하여 데이터의 정확성을 보장한다.
+    - `HTTP 라이브러리`의 설정하여 JSON이 올바르게 `인코딩`되고 전송되는지 확인한다.
+
+### OpenAI API가 정상적으로 응답한 JSON 결과.
+
+```java
+{
+  "id": "chatcmpl-AB52uKG6WaD1Wntu0Ac7fMwGnaxzO",
+  "object": "chat.completion",
+  "created": 1727204368,
+  "model": "gpt-3.5-turbo-0125",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "의사 코드는 명확하고 간결하게 작성하는 것이 중요하다. 불필요한 세부 정보나 복잡한 구현은 의사 코드에 포함시키지 말아야 한다",
+        "refusal": null
+      },
+      "logprobs": null,
+      "finish_reason": "length"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 940,
+    "completion_tokens": 100,
+    "total_tokens": 1040,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "system_fingerprint": null
+}
+```
+
+## 여기서 몇 가지 주요 정보를 살펴보면
+
+- `API 응답 구조:`
+    - `id`: 응답의 고유 ID.
+    - `model`: 사용된 모델 (`gpt-3.5-turbo-0125`).
+    - `choices`: 모델의 응답 결과가 담긴 배열이다. 이 배열의 첫 번째 (`index: 0`) 항목에서 모델이 응답한 내용이 포함되어 있다.
+        - `message.role`: 응답자가 "assistant" (GPT 모델)임을 나타낸다.
+        - `message.content`: 실제로 모델이 응답한 내용이다. 여기서는 의사 코드 작성에 대한 설명이 포함되어 있다.
+        - `finish_reason`: "length"로 되어 있는데, 이는 응답이 지정된 토큰 수에 도달하여 응답이 중단되었음을 의미한다.
+- `토큰 관련 정보:`
+    - `prompt_tokens`: 사용된 프롬프트(사용자 입력)에 940개의 토큰이 사용되었다.
+    - `completion_tokens`: 모델의 응답에 100개의 토큰이 사용한다.
+    - `total_tokens`: 총 1040개의 토큰이 사용한다.
+- `finish_reason이 "length"인 이유:`
+    - `finish_reason`이 "length"라는 것은 API 요청 시 지정한 `max_tokens` 제한(여기서는 100)에 도달했음을 의미한다.
+    - 따라서 응답이 완전히 끝나지 않고 중단된 것이다.
