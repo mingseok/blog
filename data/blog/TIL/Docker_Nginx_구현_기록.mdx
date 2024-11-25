@@ -18,33 +18,33 @@ summary: 'Docker로 서비스를 실행하고, Nginx로 연결을 관리하며 H
 
 ## Docker 사용해보기
 
-1. 사이트에서 설치한다.
+- 사이트에서 설치한다.
 
 ![image.png](/static/images/이미지21.png)
 
-1. 설치 프로그램을 실행하고, 안내에 따라 설치를 완료한다.
-2. 설치가 끝나면 Docker Desktop을 실행하고, Docker가 제대로 작동하는지 확인한다.
- - 명령 프롬프트(cmd) 창에서 밑에 명령어를 작성하여 확인하기.
+- 설치 프로그램을 실행하고, 안내에 따라 설치를 완료한다.
+- 설치가 끝나면 Docker Desktop을 실행하고, Docker가 제대로 작동하는지 확인한다.
+     - 명령 프롬프트(cmd) 창에서 밑에 명령어를 작성하여 확인하기.
 
   ```java
   docker --version
   ```
 
 
-1. `build` 태스크를 통한 jar 파일을 생성해야 된다.
+`build` 태스크를 통한 jar 파일을 생성해야 된다.
  - 왼쪽 사진을 따라 진행하면 오른쪽 사진처럼의 jar 파일이 생성된다.
 
 ![image.png](/static/images/이미지22.png)
 
 ![image.png](/static/images/이미지23.png)
 
-1. 다음으로 `SpringBoot` 프로젝트를 `Docker`로 컨테이너화하기 위해 `Dockerfile`을 만들어야 한다. `Dockerfile`은 Docker 이미지 생성을 위한 명령어가 포함된 파일이다.
+- 다음으로 `SpringBoot` 프로젝트를 `Docker`로 컨테이너화하기 위해 `Dockerfile`을 만들어야 한다. `Dockerfile`은 Docker 이미지 생성을 위한 명령어가 포함된 파일이다.
 
 ![image.png](/static/images/이미지24.png)
 
 - 인텔리제이에서 프로젝트의 루트 디렉토리 즉, `src` 디렉토리가 있는 폴더에 `Dockerfile`이라는 파일을 생성해준다.
 - `Dockerfile` 파일에 다음과 같은 내용을 추가한다.
-  - `(프로젝트의 JAR 파일을 컨테이너에 복사)` → 항목은 각자의 프로젝트에서의 `build`를 통해 생성된 `jar`파일 이름을 작성하는 것이다.
+    - `(프로젝트의 JAR 파일을 컨테이너에 복사)` → 항목은 각자의 프로젝트에서의 `build`를 통해 생성된 `jar`파일 이름을 작성하는 것이다.
 
 ```java
 # OpenJDK 17을 기반으로 한 Docker 이미지 사용
@@ -60,10 +60,10 @@ COPY build/libs/resume-feedback-0.0.1-SNAPSHOT.jar /app/app.jar
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
-1. 프로젝트 빌드 및 Docker 이미지 생성하기
- - 이제 Docker 이미지를 생성하는 과정이다. 4번 과정을 한번 더 빌드해서 JAR 파일을 만든 후, Docker 이미지로 변환하는 작업이다.
- - 빌드를 완료 하였다면 밑에 명령어를 `인텔리제이 터미널` or `cmd`에서 실행시킨다.
-  - 실행 시킬때는 해당 프로젝트 파일에서의 Dockerfile이 있는 위치까지 가서 실행 시킨다.
+- 프로젝트 빌드 및 Docker 이미지 생성하기
+    - 이제 Docker 이미지를 생성하는 과정이다. 4번 과정을 한번 더 빌드해서 JAR 파일을 만든 후, Docker 이미지로 변환하는 작업이다.
+    - 빌드를 완료 하였다면 밑에 명령어를 `인텔리제이 터미널` or `cmd`에서 실행시킨다.
+         - 실행 시킬때는 해당 프로젝트 파일에서의 Dockerfile이 있는 위치까지 가서 실행 시킨다.
 
   ```java
   docker build -t springboot-app .
@@ -76,9 +76,9 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
 ![image.png](/static/images/이미지26.png)
 
-1. Docker 컨테이너 실행하기
- - 이제 생성된 이미지를 컨테이너로 실행해볼 수 있다.
- - 다음 명령어로 Docker 컨테이너를 실행한다.
+- Docker 컨테이너 실행하기
+    - 이제 생성된 이미지를 컨테이너로 실행해볼 수 있다.
+    - 다음 명령어로 Docker 컨테이너를 실행한다.
 
   ```java
   docker run -p 8080:8080 springboot-app
@@ -96,7 +96,7 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
 먼저 Nginx를 Docker 컨테이너로 실행하는 것이다. Docker를 통해 설치하면 컨테이너로 Nginx를 실행할 수 있다.
 
-1. PowerShell을 열고 밑에 명령어를 입력한다.
+- PowerShell을 열고 밑에 명령어를 입력한다.
 
 ```java
 docker pull nginx
@@ -106,8 +106,8 @@ docker pull nginx
 
 ![image.png](/static/images/이미지28.png)
 
-1. Nginx Docker 컨테이너 실행하기
-- Docker 명령어로 Nginx 실행한다
+- Nginx Docker 컨테이너 실행하기
+    - Docker 명령어로 Nginx 실행한다
 
 ```java
 docker run --name my-nginx -p 80:80 -d nginx
@@ -127,8 +127,8 @@ docker run --name my-nginx -p 80:80 -d nginx
 
 ![image.png](/static/images/이미지30.png)
 
-1. Nginx 설정 파일 만들기.
-- Nginx 설정 파일 (`nginx.conf`) 생성하기
+- Nginx 설정 파일 만들기.
+    - Nginx 설정 파일 (`nginx.conf`) 생성하기
 
 이제 `Nginx`가 클라이언트로부터 `HTTPS(SSL)` 요청을 받고, 내부적으로 `Spring Boot` 애플리케이션에 요청을 전달하도록 설정 파일을 작성하는 것이다.
 
@@ -179,9 +179,9 @@ http {
 
 ```
 
-1. SSL 인증서 생성하기
-- 밑에 링크를 들어가서 설치한다.
-- https://slproweb.com/products/Win32OpenSSL.html
+- SSL 인증서 생성하기
+    - 밑에 링크를 들어가서 설치한다.
+    - https://slproweb.com/products/Win32OpenSSL.html
 
 ![image.png](/static/images/이미지31.png)
 
@@ -249,11 +249,11 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx-selfsigned.key
 
 ![image.png](/static/images/이미지37.png)
 
-1. Docker Compose 설정 작성
-- Docker Compose를 사용하면, `로컬에 있는 인증서 파일을 컨테이너 내로 마운트`할 수 있다.
-  - 이 과정을 통해 Nginx가 SSL 인증서와 비밀 키 파일을 사용할 수 있게 되는 것이다.
-- Nginx와 Spring Boot 애플리케이션을 함께 실행할 수 있도록 `Docker Compose` 파일을 작성한다.
-- Docker Compose는 여러 컨테이너를 동시에 관리하고 실행할 수 있게 도와주는 것이다..
+- Docker Compose 설정 작성
+    - Docker Compose를 사용하면, `로컬에 있는 인증서 파일을 컨테이너 내로 마운트`할 수 있다.
+        - 이 과정을 통해 Nginx가 SSL 인증서와 비밀 키 파일을 사용할 수 있게 되는 것이다.
+    - Nginx와 Spring Boot 애플리케이션을 함께 실행할 수 있도록 `Docker Compose` 파일을 작성한다.
+    - Docker Compose는 여러 컨테이너를 동시에 관리하고 실행할 수 있게 도와주는 것이다..
 
 ```java
 version: '3'
@@ -282,10 +282,10 @@ services:
   - `volumes`: 로컬 파일 시스템의 `nginx.conf`와 SSL 인증서를 Nginx 컨테이너 내부로 마운트.
   - `depends_on`: Spring Boot 애플리케이션이 먼저 실행되어야 Nginx가 실행됨.
 
-1. Docker Compose 실행
-- Docker Compose로 Nginx와 Spring Boot 애플리케이션을 실행한다.
-- 인텔리제이에서 명령어를 입력한다.
-  - 주의사항은 프로젝트의 `src`, `dockerfile`, `docker-compose` 폴더가 있는 위치에서 명령어를 입력해야 된다는 것이다.
+- Docker Compose 실행
+    - Docker Compose로 Nginx와 Spring Boot 애플리케이션을 실행한다.
+    - 인텔리제이에서 명령어를 입력한다.
+        - 주의사항은 프로젝트의 `src`, `dockerfile`, `docker-compose` 폴더가 있는 위치에서 명령어를 입력해야 된다는 것이다.
 
   ```java
   docker-compose up --build
