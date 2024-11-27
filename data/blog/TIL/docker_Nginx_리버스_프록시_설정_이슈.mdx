@@ -1,0 +1,247 @@
+---
+title: 'docker, Nginx 설정 이슈 개인적인 정리'
+date: '2024-11-26'
+tags: ['Docker', 'Nginx']
+draft: false
+summary: 'docker, Nginx 리버스 프록시 설정 이슈'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## Nginx 리버스 프록시 설정 이슈
+
+현재 `localhost`를 입력했을 때, Nginx의 기본 페이지가 표시되고 있다.
+
+이 동작은 Nginx가 실행되고 있다는 것을 의미하지만, `Spring Boot 애플리케이션과의 연결`이 설정되지 않은 상태이다.
+
+`Nginx의 기본 환영 페이지`가 표시되고 있는데, Nginx가 정상적으로 작동하고 있지만, `Spring Boot 애플리케이션`으로 리버스 프록시 설정이 제대로 이루어지지 않았다
+
+- `Nginx`가 `Spring Boot` 애플리케이션으로 트래픽을 전달하지 않고 `기본 Nginx 페이지`를 보여주고 있는 상황이다.
+
+### 왜 Nginx의 기본 페이지가 보이는 걸까?
+
+애플리케이션은 정상적으로 실행되고 있지만, Nginx가 `Spring Boot 애플리케이션으로 프록시 요청을 전달하지 않고 기본 Nginx 페이지를 보여주는 상태`라서 그렇다.
+
+- Nginx 설정에서 Spring Boot 애플리케이션과의 연결 설정이 제대로 이루어지지 않았기 때문이다.
+
+`정상적인 동작`이라면, Nginx가 Spring Boot 애플리케이션에 대한 요청을 `리버스 프록시`로 전달해야 하고, 그 결과 Spring Boot 애플리케이션의 페이지가 브라우저에 나타나야 하는 것이다.
+
+### Nginx 컨테이너가 실행되지 않은 이유
+
+- Nginx 컨테이너가 생성되었는지, 중지된 상태인지 확인해야 해. 이를 확인하려면 다음 명령어를 입력한다.
+
+```java
+docker ps -a
+```
+
+- 이 명령어를 실행하면 `모든 컨테이너`(중지된 것 포함)가 출력되므로, Nginx 컨테이너가 목록에 있는지 확인할 수 있다.
+
+![image.png](/static/images/이미지52.png)
+
+- 출력 결과를 보면, `Nginx 컨테이너(resume-feedback-nginx-1)`가 실행되었다가 `종료된 상태`(Exited)임을 알 수 있다.
+- 또한 상태 코드 `(1)`은 `Nginx 실행 중에 오류`가 발생했음을 알 수 있었다.
+- 이를 해결하기 위해서는 Nginx 컨테이너의 `오류 로그`를 확인하는 것이 중요했다.
+
+### Nginx 컨테이너 로그 확인
+
+- 다음 명령어로 Nginx 컨테이너가 왜 종료되었는지 로그를 확인 했다.
+
+```java
+docker logs resume-feedback-nginx-1
+```
+
+이 명령어를 실행하면, Nginx가 종료된 이유를 알 수 있는 로그를 출력한다.
+
+![image.png](/static/images/이미지53.png)
+
+- 로그에 나오는 에러 메시지 `"server directive is not allowed here"`는 Nginx 설정 파일에서 `server` 블록이 잘못된 위치에 정의되었음을 의미한다.
+- 구체적으로, `server` 블록이 Nginx 설정 파일의 최상위 레벨이 아닌 잘못된 위치에 배치된 경우 발생하는 에러 였다.
+
+## 해결 방법.
+
+1. Nginx 설정 파일 (nginx.conf) 구조 확인.
+`server` 블록은 반드시 `http 블록 내부`에 정의되어야 했다. `http` 블록은 `events` 블록 아래에 위치해야 한다는 것을 알게 되었다.
+
+Nginx 설정 파일의 기본 구조와 같아야 하는 것이였다.
+
+```java
+events {
+    # 이벤트 관련 설정
+}
+
+http {
+    server {
+        listen 80;
+        server_name localhost;
+
+        # 여기에서 추가 설정
+    }
+}
+
+```
+
+그리하여 이렇게 수정하였다.
+
+```java
+events {
+    # 기본 이벤트 설정 (필수)
+}
+
+http {
+    server {
+        listen 443 ssl;
+        server_name localhost;
+
+        # SSL 인증서 설정
+        ssl_certificate /etc/nginx/ssl/nginx-selfsigned.crt;
+        ssl_certificate_key /etc/nginx/ssl/nginx-selfsigned.key;
+
+        # Spring Boot 애플리케이션으로 요청 전달
+        location / {
+            proxy_pass http://application:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        # HTTP로 들어오는 요청을 HTTPS로 리다이렉트
+        return 301 https://$host$request_uri;
+    }
+}
+
+```
+
+그리하여 로그를 다시 확인하기 위해 명령어를 실행했다.
+
+```java
+docker logs resume-feedback-nginx-1
+```
+
+![image.png](/static/images/이미지54.png)
+
+- 로그에 따르면, Nginx가 SSL 인증서 파일(`nginx-selfsigned.crt`)을 찾을 수 없어서 발생한 오류였다.
+- 정확한 오류 메시지는 `"cannot load certificate /etc/nginx/ssl/nginx-selfsigned.crt"`로, 해당 경로에 인증서 파일이 없거나 경로가 잘못되었다는 것이였다.
+
+### 원인
+
+1. SSL 인증서 파일 위치 확인한다.
+ - 인증서 파일(`nginx-selfsigned.crt` 및 `nginx-selfsigned.key`)이 제대로 생성되고 올바른 경로에 있는지 확인 했다.
+ - `docker-compose.yml` 파일에서 다음과 같이 마운트 경로를 확인할 수 있다.
+
+```java
+volumes:
+  - /c/Users/MTM/ssl:/etc/nginx/ssl  # SSL 인증서와 키 마운트
+```
+
+- `/c/Users/MTM/ssl/` 디렉토리에 `nginx-selfsigned.crt`와 `nginx-selfsigned.key` 파일이 존재하는지 확인했다.
+
+### 여기서 원인을 찾을 수 있었다.
+
+- 인증서 파일을 인텔리제이 `ssl` 폴더 안에 넣어놨던 것이였다..
+- 현재 `docker-compose.yml`에서 인증서 파일을 `/c/Users/MTM/ssl` 경로에 마운트하려고 하고 있기 때문에, 실제 경로와 마운트 경로가 일치하지 않는 것이 문제 였던 것이다.
+
+![image.png](/static/images/이미지55.png)
+
+- `docker-compose.yml` 파일에서 볼륨 마운트 경로를 IntelliJ 프로젝트 내의 `ssl` 폴더로 수정 했다.
+- 현재 `docker-compose.yml` 파일은 이렇게 되어 있던 것을 수정했다.
+
+```java
+(수정 전)
+volumes:
+  - /c/Users/MTM/ssl:/etc/nginx/ssl
+
+(수정 후)
+volumes:
+  - ./ssl:/etc/nginx/ssl  # IntelliJ 프로젝트 내의 ssl 폴더와 매핑
+```
+
+수정 후, `docker-compose down` 명령어로 기존 컨테이너를 종료하고, 다시 `docker-compose up --build` 명령어를 실행해서 컨테이너를 재시작 하였더니 성공하였다.
+
+![image.png](/static/images/이미지56.png)
+
+### 마지막 정리.
+
+`https://localhost`로 입력했을 때 이전에 `localhost:8080`에서 보이던 `Spring Boot 애플리케이션` 화면이 정상적으로 출력 되었다.
+
+Nginx가 SSL 설정과 함께 `리버스 프록시` 역할을 제대로 수행하고 있는 것이다.
+
+즉, Nginx가 `HTTPS 포트(443)`에서 들어오는 요청을 받아서 `Spring Boot 애플리케이션(8080)`으로 전달하고, 그 결과를 브라우저에 출력하는 과정이 모두 정상적으로 동작하고 있는 상태인 것이다.
+
+성공적으로 Nginx와 Spring Boot 애플리케이션이 Docker 환경에서 SSL을 통해 연결된 것을 알 수 있었다.
+
+## docker) invalid volume specification 에러.
+
+```java
+Error response from daemon: invalid volume specification:
+                              '/etc/nginx/ssl:C/Users/MTM/ssl:rw':
+                                 invalid mount config for type "bind":
+                                   invalid mount path: 'C/Users/MTM/ssl' mount path must be absolute
+```
+
+- 에러 메시지에서 `invalid volume specification`이라는 문제가 발생했다.
+- 이 에러는 `Nginx 컨테이너에 SSL 인증서 파일을 마운트할 때 경로 설정`에 문제가 있다는 것이다.
+- 특히, Windows 경로를 마운트할 때 문제가 발생한 것이였다.
+
+## 문제 원인.
+
+- `/etc/nginx/ssl:C/Users/MTM/ssl:rw`라는 경로 설정이 잘못되어 있었다.
+- 이 구문에서 Windows 경로(`C/Users/MTM/ssl`)를 직접 사용하려고 했기 때문에 문제가 발생한 것이다.
+- Docker에서는 `Windows 경로`와 `Linux 경로`를 혼용하지 않아야 한다는 것이 중요했다.
+- Docker는 Windows에서도 기본적으로 `Linux 파일 시스템 경로 형식`을 사용해야 하기 때문에, Windows의 드라이브 경로(`C:/Users/...`)를 Docker 컨테이너에서 마운트할 때는 정확한 방식으로 변경해야 하는 것이였다.
+
+## 수정 방법.
+
+### 1. Windows 경로를 올바르게 변환
+
+- Windows 경로를 올바르게 마운트하려면, Windows의 `절대 경로`를 사용하는 것이 중요했다.
+- 특히 Windows 경로에서 슬래시(`/`)와 백슬래시(`\`)를 혼용하지 말고, Docker가 이해할 수 있는 방식으로 변환해야 하는 것이다.
+
+Windows 경로 마운트 형식:
+
+- Windows 경로 `C:\Users\MTM\ssl`은 Docker에서 사용할 때 `절대 경로`로 변환되어야 한다.
+- 올바른 경로 형식: `/c/Users/MTM/ssl` 이다.
+
+### 2. docker-compose.yml 수정.
+
+`docker-compose.yml` 파일에서 SSL 경로를 아래와 같이 수정한다.
+
+```java
+version: '3'
+services:
+  application:
+    image: springboot-app
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /c/Users/MTM/ssl:/etc/nginx/ssl  # SSL 인증서 마운트
+    depends_on:
+      - application
+
+```
+
+### 변경 사항 설명:
+
+- Windows 경로를 Docker 경로로 변환한 것이다.
+  - `C:/Users/MTM/ssl` 대신 `/c/Users/MTM/ssl` 형태로 변환했다.
+  - Docker가 Windows에서 파일 시스템을 이해할 수 있게 해주는 방식이다.
+- volumes 항목 수정하였다.
+  - `/c/Users/MTM/ssl:/etc/nginx/ssl`처럼 올바르게 마운트 경로를 지정해주었다.
+  - 이렇게 하면 Windows의 `C:\Users\MTM\ssl` 폴더가 Nginx 컨테이너 내부의 `/etc/nginx/ssl` 폴더에 마운트 되는 것이다.
