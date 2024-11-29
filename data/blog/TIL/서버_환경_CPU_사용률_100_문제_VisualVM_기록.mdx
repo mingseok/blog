@@ -1,0 +1,235 @@
+---
+title: 'VisualVM 원격 모니터링을 통한 CPU 사용률 100% 문제의 원인 정리'
+date: '2024-11-29'
+tags: ['VisualVM', 'CPU', '도커', 'AWS']
+draft: false
+summary: 'VisualVM 설정에서 RMI 포트를 고정하여 CPU 사용률 100% 문제를 원격으로 모니터링'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+
+
+배포한 애플리케이션에서 대용량 데이터 처리 중 `CPU 사용률이 100%`까지 치솟는 문제가 발생했다.
+
+이 문제의 원인을 파악하기 위해 `원격 모니터링`을 설정하고, 애플리케이션의 실행 상태를 `VisualVM`을 통해 살펴보고자 했다.
+
+여기에서는 `설정 과정`, `문제 해결을 위한 시도`, 그리고 `겪었던 어려움`에 대해 기록해보겠다.
+
+## 상황
+
+![image.png](/static/images/이미지66.png)
+
+CPU 사용률 100% 현상.
+
+문제는 `큰 PDF 파일`을 처리하는 과정에서 발생했다.
+
+이미지 및 텍스트 추출 작업을 수행하는 동안 CPU 사용률이 급증하는 현상이었고,
+
+대량의 데이터 처리가 CPU에 과도한 부하를 주고 있을 가능성이 있다고 판단했다.
+
+- 이를 `모니터링`하고자 `JMX(JAVA Management Extensions)`와 `VisualVM`을 활용해 애플리케이션의 성능을 분석하기로 했다.
+
+### 배포 환경 모니터링 설정
+
+원격 모니터링을 위한 환경을 설정하기 위해 `setenv.sh` 파일을 다음과 같이 구성했다.
+
+```java
+#!/bin/bash
+
+CATALINA_OPTS="-Dcom.sun.management.jmxremote=true \
+-Dcom.sun.management.jmxremote.port=1099 \
+-Dcom.sun.management.jmxremote.ssl=false \
+-Dcom.sun.management.jmxremote.authenticate=false \
+-Djava.rmi.server.hostname=<탄력적 IP>"
+```
+
+이 설정을 통해 `JMX`를 활성화하여 원격으로 `CPU,` `메모리 사용량`, `GC(Garbage Collection)` 활동 등을 실시간으로 모니터링할 수 있도록 했다.
+
+- `setenv.sh` 파일이 애플리케이션 실행 시 자동으로 적용되는지 확인해야 했다.
+
+![image.png](/static/images/이미지67.png)
+
+해당 파일 위치 `/home/ec2-user/resume-feedback/resume-feedback/setenv.sh`에 위치하고 있는 것을 확인 했다.
+
+### 포트 개방 여부 확인
+
+- `netstat` 명령어로 JMX 포트가 열려 있는지 확인한다.
+- `netstat -an | grep 1099` 명령어를 사용하여 1099 포트가 제대로 리슨 상태에 있는지 확인한다.
+
+### VisualVM으로 원격 연결 확인
+
+- `VisualVM`에서 해당 서버의 `IP`와 `포트`로 JMX 연결을 시도한다.
+- VisualVM에서 연결에 성공하고 `CPU`, 메모리 등의 `모니터링`이 가능하다면 JMX 설정이 성공적으로 적용된 것이다.
+
+## 문제
+
+`1099` 포트가 열리지 않았거나 `JMX` 설정이 제대로 적용되지 않은 것이다.
+
+![image.png](/static/images/이미지68.png)
+
+![image.png](/static/images/이미지69.png)
+
+`CATALINA_OPTS` 변수가 설정되지 않았다는 경고가 표시되고 있으므로, 이 문제가 JMX 설정이 적용되지 않은 원인일 수 있다.
+
+`CATALINA_OPTS` 변수가 비어 있는 상태로 Docker 컨테이너가 실행되었기 때문에 JMX 포트가 열리지 않았을 가능성이 있다.
+
+- 두번째 경고: `docker-compose.yml` 파일의 `version` 속성이 오래된 형식이라는 경고이다. `version: '3'`처럼 작성되어 있는 부분을 삭제했다. `docker-compose` 최신 버전에서는 `version` 필드를 명시하지 않아도 된다.
+
+## 원인
+
+- `entrypoint` 설정은 컨테이너가 시작될 때 실행할 명령어를 정의한다
+  - `setenv.sh` 스크립트를 먼저 실행한 후 `CATALINA_OPTS` 변수를 사용하여 Java 애플리케이션을 시작하도록 했다.
+- `environment` 섹션에서 `CATALINA_OPTS`와 필요한 환경 변수를 설정한다.
+- `volumes` 섹션에서 `setenv.sh` 파일을 `/app/setenv.sh`로 컨테이너에 복사하여 `source /app/setenv.sh` 명령으로 로드할 수 있게 했다.
+
+이렇게 설정하면 `docker-compose up -d` 명령으로 컨테이너를 시작할 때 `setenv.sh`에 정의된 환경 변수가 로드된 상태로 Java 애플리케이션이 실행되게 한다.
+
+![image.png](/static/images/이미지70.png)
+
+해당 메시지에서 `source /app/setenv.sh: No such file or directory`라는 오류가 발생하는 이유는 `/app/setenv.sh` 파일이 지정된 경로에 없기 때문이다.
+
+## 해결
+
+`setenv.sh` 파일이 실제로 `resume-feedback` 폴더에 있는지 확인하고, `docker-compose.yml`에서 `volumes` 항목을 올바르게 설정했는지 확인한다.
+
+setenv.sh 파일이 resume-feedback 폴더에 있는지 확인한다.
+
+```java
+ls ~/resume-feedback | grep setenv.sh
+```
+
+파일이 컨테이너에 제대로 복사되었는지 확인하기 위해, 컨테이너에 들어가서 파일이 있는지 확인했다.
+
+```java
+docker exec -it <container_name> /bin/bash
+ls /app/setenv.sh
+```
+
+`setenv.sh` 파일이 경로에 존재하고, `CATALINA_OPTS` 변수가 제대로 설정되었는지 확인.
+
+![image.png](/static/images/이미지71.png)
+
+`setenv.sh` 파일은 현재 경로에서 `/home/ec2-user/resume-feedback/resume-feedback/setenv.sh` 위치에 있다.
+
+이제 이 파일을 Docker Compose 설정에서 올바르게 참조하고 있는지 확인해야 했다.
+
+현재 경로에 맞게 Docker Compose 파일의 `volumes` 항목을 수정했다.
+
+```java
+volumes:
+  - /home/ec2-user/resume-feedback/resume-feedback/setenv.sh:/app/setenv.sh
+```
+
+그런데, 다시 진행해도 이렇다… 도대체 뭔데 ..
+
+![image.png](/static/images/이미지72.png)
+
+`CATALINA_OPTS`가 비어 있다는 경고 메시지가 계속 나타나는 이유는 `setenv.sh` 파일이 제대로 로드되지 않기 때문일 것이라 생각했다.
+
+또한, `docker-compose`가 오류로 인해 실행에 실패했을 수 있겠다고 생각하여 단서를 찾을 수 있었다.
+
+![image.png](/static/images/이미지73.png)
+
+### `/bin/sh: 1: source: not found` 오류
+
+`source` 명령어가 실행되지 않으면서 `CATALINA_OPTS`가 설정되지 않는 문제가 있다는 것이다.
+
+이 문제는 `sh` 셸에서는 `source` 명령어가 지원되지 않기 때문에 발생. `source` 대신 `.` (점) 명령어를 사용하여 `setenv.sh`를 실행했다.
+
+```java
+entrypoint: ["/bin/sh", "-c", ". /app/setenv.sh && java $CATALINA_OPTS -jar /app/app.jar"]
+```
+
+`docker ps` 명령어가 실행 중인 컨테이너를 표시하지 않는다면, 컨테이너가 즉시 종료되었거나 `docker-compose`가 오류로 인해 실행에 실패했을 수 있다.
+
+![image.png](/static/images/이미지74.png)
+
+`docker-compose exec application /bin/sh` 명령어를 실행했을 때, `"service "application" is not running"` 오류가 발생했다.
+
+- 드디어 찾았나 싶었지만 `application` 컨테이너가 실행 중이지 않다는 것이였다.
+
+![image.png](/static/images/이미지75.png)
+
+이미지처럼 `CATALINA_OPTS` 변수에 설정한 값이 정상적으로 출력된 것을 보면, `setenv.sh` 파일에서 정의한 환경 변수가 제대로 로드된 상태이다.
+
+이제 `CATALINA_OPTS` 설정이 Docker 컨테이너 내에서 적용되는지 확인되었으므로, 애플리케이션이 이 옵션들을 통해 JMX 포트(1099)를 열고 있는지 확인했다.
+
+### 포트 확인
+
+컨테이너에서 JMX 포트가 실제로 열려 있는지 확인했다.
+
+이 명령어로 포트가 `LISTEN` 상태인지 확인, 만약 포트가 열려 있지 않다면, 애플리케이션 시작 시 해당 설정이 적용되지 않았을 가능성이 있다는 것이다.
+
+![image.png](/static/images/이미지76.png)
+
+VisualVM에서 AWS 인스턴스의 탄력적 IP와 포트 1099로 연결을 시도하여 JMX 연결이 가능한지 테스트 해보려 했다.
+
+인바운드 규칙도 다시 확인 해봤다.
+
+![image.png](/static/images/이미지77.png)
+
+### 하지만, 여전히 출력되고 있었다..
+
+![image.png](/static/images/이미지78.png)
+
+지금은 로그 상으로 `CATALINA_OPTS` 설정이 제대로 인식되지 않고 있는 것으로 보인다.
+
+`setenv.sh` 파일이 제대로 설정되어 있는지 확인했다.
+
+![image.png](/static/images/이미지79.png)
+
+### 컨테이너 안에서 `CATALINA_OPTS` 확인
+
+Docker Compose를 사용하여 애플리케이션을 실행한 후, 다음 명령어로 `CATALINA_OPTS` 변수가 올바르게 설정되었는지 확인도 하였다.
+
+![image.png](/static/images/이미지80.png)
+
+지금까지 진행 했는데, 왜 안되는지 이해 할 수 없었다. 이게 왜 해결이 안되지?
+
+### 드디어 해결.
+
+```java
+"Dcom.sun.management.jmxremote.rmi.port=1099"
+```
+
+안되었던 이유는 `JMX(Remote Method Invocation)` 연결을 위해 `RMI` 포트가 별도로 필요했기 때문이다.
+
+### JMX 연결과 포트의 동작 방식
+
+`JMX`는 `두 개의` 포트를 필요로 한다는 걸 몰랐다.
+
+1. JMX 포트 기본적으로 JMX `서버`가 `수신 대기`하는 포트로, 이 포트를 통해 `클라이언트가 JMX 엔드포인트`에 접근할 수 있다.
+2. RMI 포트 `실제 원격 객체`에 `접근`할 때 사용하는 포트이다. 이 포트는 `클라이언트가 RMI를 통해 데이터를 송수신`할 때 사용된다.
+
+보통 `jmxremote.port`를 지정하면 `JVM`은 `RMI` 통신을 위해 `임의의 포트를 동적으로 할당`하여 사용한다.
+
+하지만 `클라우드 환경`이나 `방화벽이 설정된 네트워크`에서는 임의의 포트를 열어 두지 않고 `특정 포트만 열어둔 경우가 많다.` 이 경우, `RMI 포트`가 정해지지 않으면 클라이언트가 연결할 수 없게 되는 것이다.
+
+### 문제의 원인
+
+기본 설정에서 `jmxremote.rmi.port`를 설정하지 않은 경우
+
+- `JMX`가 관리용 포트(`port=1099`)를 통해 기본적으로 연결을 수락하지만, `클라이언트가 실제 원격 메서드`를 호출할 때는 `임의 포트`를 사용하여 응답하게 된다.
+- 하지만 EC2 인스턴스처럼 `특정 포트(예: 1099)만 열려 있는 경우`, 임의로 선택된 포트를 통해 통신을 시도하기 때문에 `연결이 거부`된 것이다.
+
+## 결말
+
+![image.png](/static/images/이미지81.png)
+
+- `Dcom.sun.management.jmxremote.rmi.port=1099`를 추가하여 해결 하였다.
+- JMX 관리 포트(`jmxremote.port`)와 `RMI 포트`를 동일하게 설정했다.
+- 이로 인해 `JMX`와 `RMI` 모두 1099 포트만 사용하게 되어 `포트가 고정`되며, 방화벽에서 해당 포트를 열어두었으므로 `클라이언트가 정상적으로 연결`할 수 있게 된 것이다.
+
+따라서 `jmxremote.rmi.port`를 설정하지 않으면 `임의의 포트`가 사용되기 때문에 `연결이 실패`했고, 이 설정을 통해 포트를 고정하여 안정적으로 연결할 수 있었던 것이다.
+
+이제 실행 하였을때, 경고 메시지가 출력 되지 않았다.
+
+![image.png](/static/images/이미지82.png)
+
+접근하였을때, 출력 되는 화면.
+
+![image.png](/static/images/이미지83.png)
