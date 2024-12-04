@@ -64,6 +64,7 @@ String resumeContent = extractResumeContent(file);
 if (resumeContent == null) {
     return ResponseEntity.badRequest().body(Map.of("error", "지원하지 않는 파일 형식입니다"));
 }
+
 String initialFeedback = openAiService.getDetailedFeedback(resumeContent);
 ```
 
