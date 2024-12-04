@@ -1,0 +1,198 @@
+---
+title: '프로젝트 생성 시, 초기 설정 과정 기록으로 남기기'
+date: '2024-11-30'
+tags: ['스프링', '스프링부트', '초기설정']
+draft: false
+summary: '프로젝트를 생성할 때의 과정을 다시 볼 수 있도록 기록으로 남긴다.'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+
+
+## 프로젝트 초기 설정
+
+- https://start.spring.io/
+
+![image.png](/static/images/이미지84.png)
+
+<br/>
+
+![image.png](/static/images/이미지85.png)
+
+<br/>
+
+![image.png](/static/images/이미지86.png)
+
+
+
+다 끝나면 다운로드 받기.
+
+
+![image.png](/static/images/이미지87.png)
+
+
+<br/>
+
+![image.png](/static/images/이미지88.png)
+
+
+
+인텔리제이에서 찾기.
+
+
+![image.png](/static/images/이미지89.png)
+
+
+폴더 환경 설정.
+
+![image.png](/static/images/이미지90.png)
+
+
+그리고 실행 시켜서 톰켓 번호 확인하기
+
+
+![image.png](/static/images/이미지91.png)
+
+
+환경 설정
+
+
+![image.png](/static/images/이미지92.png)
+
+
+클릭 하면
+
+
+![image.png](/static/images/이미지93.png)
+
+
+
+밑에 처럼 표시된다.
+
+![image.png](/static/images/이미지94.png)
+
+
+<br/>
+
+
+![image.png](/static/images/이미지95.png)
+
+<br/>
+
+
+![image.png](/static/images/이미지96.png)
+
+
+
+추가 적으로 롬봄 사용 시 체크 해주기
+
+![image.png](/static/images/이미지97.png)
+
+
+
+
+추가로 인코딩 설정을 해야 된다.
+
+그리고 인텔리를 재부팅하면 기존에 설정하였던 것들이 ‘?’ 로 변경되어 있다.
+
+그러면 다시 입력하기.
+
+![image.png](/static/images/이미지98.png)
+
+
+
+Spring Boot Devtools 사용법
+
+html, css를 고치면 다시 애플리케이션을 껐다 킬 필요 없이 바로 로딩 되는 것이다.
+
+
+
+추가해주기.
+
+```java
+dependencies {
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+}
+````
+
+![image.png](/static/images/이미지99.png)
+
+<br/>
+
+
+![image.png](/static/images/이미지100.png)
+
+
+<br/>
+
+![image.png](/static/images/이미지101.png)
+
+
+
+<br/>
+
+
+![image.png](/static/images/이미지102.png)
+
+
+
+<br/>
+
+
+![image.png](/static/images/이미지103.png)
+
+<br/>
+
+## yml 파일을 사용해 환경 변수 값을 관리하는 방법
+
+![image.png](/static/images/이미지104.png)
+
+
+IntelliJ IDEA의 "Run/Debug Configurations" 대화 상자를 열여 준다.
+- 여기서는 "LinkcentralApplication"이라는 이름의 Spring Boot 애플리케이션 구성을 수정하려고 한다.
+- "Edit Configurations" 버튼이 클릭
+
+![image.png](/static/images/이미지105.png)
+
+
+
+
+여기서는 다양한 실행 옵션들을 설정할 수 있는 메뉴들이 있다.
+- "Spring Boot" 섹션에서 "Active profiles" 또는 "Environment variables" 같은 설정들을 할 수 있다.
+- "EnvFile"이 체크되어 있어서 환경 변수 파일을 로드하는 옵션이 활성화되어 있음을 말한다.
+
+
+![image.png](/static/images/이미지106.png)
+
+
+
+환경 변수 섹션에 "AWS_S3_ACCESS_KEY"와 "AWS_S3_SECRET_KEY"라는 두 개의 환경 변수가 설정되어 있다.
+이러한 키는 아마도 AWS S3 버킷에 접근하기 위한 인증 정보일 것이다.
+사용자는 이 값을 시스템 환경 변수나 외부 파일에서 불러와서 사용할 수 있다.
+
+
+
+![image.png](/static/images/이미지107.png)
+
+
+"AWS_S3_ACCESS_KEY"와 "AWS_S3_SECRET_KEY"의 값을 입력하는 부분이며, 이 값들은 실제 환경 변수의 값으로 대체될 것이다.
+시스템 환경 변수를 포함할지 여부를 선택할 수도 있다.
+
+
+
+<br/>
+
+
+
+### 정리
+프로젝트의 실행 환경을 설정하는 방법을 순서대로 보여 준다.
+- 사용자는 이 설정들을 통해 애플리케이션을 실행할 때 필요한 환경 변수를 관리하고, AWS와 같은 서비스에 안전하게 연결하기 위한 인증 정보를 설정할 수 있습니다.
+
+
+
+
+
