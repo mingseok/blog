@@ -1,0 +1,241 @@
+---
+title: 'Git Issues 사용 및 중복 커밋 내역 합치기 방법 기록 남기기'
+date: '2024-12-02'
+tags: ['깃허브', 'git Issues']
+draft: false
+summary: 'Git Issues 사용 방법과 중복 커밋 내역 합치는 방법에 대해 과정 남기기'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## Git Issues 사용
+
+Issues 항목으로 들어가 New Issues 버튼을 클릭한다.
+
+![image.png](/static/images/이미지118.png)
+
+
+
+
+
+제목, 내용을 입력 후 submit을 진행한다.
+
+
+![image.png](/static/images/이미지119.png)
+
+
+
+
+[Create a branch] 로 링크가 활성화 된 부분을 클릭 해준다.
+
+![image.png](/static/images/이미지120.png)
+
+
+
+
+
+브랜치명을 작성하고, 어떤 브랜치를 베이스로 할것인지에 대한 브랜치 선택을 해준다.
+
+
+![image.png](/static/images/이미지121.png)
+
+
+
+
+인텔리제이로 돌아와, 맨 밑 Git 항목을 선택하고,
+Remote를 선택 후, 화살표 반대 방향인 update 버튼을 통해 내려 받는다.
+
+
+![image.png](/static/images/이미지122.png)
+
+
+
+
+그리고, Issues 에서 생성 하였던, 브랜치 이름을 팝업하여, Checkout을 진행 해준다.
+
+
+![image.png](/static/images/이미지123.png)
+
+
+
+
+현재 위치가 잘 변경 되었는지, 확인한다.
+
+
+![image.png](/static/images/이미지124.png)
+
+
+
+
+제대로 동작하는지 테스트를 진행한다.
+
+
+![image.png](/static/images/이미지125.png)
+
+
+
+
+커밋 진행.
+
+
+![image.png](/static/images/이미지126.png)
+
+
+
+
+커밋할 파일 체크 후, git 메시지 작성한다.
+
+
+
+![image.png](/static/images/이미지127.png)
+
+
+
+push 를 진행한다.
+
+
+![image.png](/static/images/이미지128.png)
+
+
+
+
+아까, 만든 브런치의 이름을 선택하여, 그 위에 있는 브랜치로 PR을 보내는 것이다.
+
+
+![image.png](/static/images/이미지129.png)
+
+
+
+
+여기서, 주의 해야 될 점은 base가 기본적으로 master 로 되어 있다는 것이다. 잘 변경 해주기.
+
+![image.png](/static/images/이미지130.png)
+
+
+
+중요!
+문제가 되는 사항이 없다면 PR을 머지 해주면 된다.
+
+중요한 점은 제목에 해당 번호를 작성해주면, 해당 이슈 번호에 맞는 쪽으로 연결되게 되는 것이다.
+
+
+
+![image.png](/static/images/이미지131.png)
+
+
+
+
+이렇게, 잘 올라가게 된 것을 알 수 있다.
+
+
+![image.png](/static/images/이미지132.png)
+
+
+
+
+예시)
+
+![image.png](/static/images/이미지133.png)
+
+
+<br/>
+
+## 중복 커밋 내역 합치는 방법
+
+이런 필요 없는 이력들이 남을 수 있다.
+
+![image.png](/static/images/이미지134.png)
+
+
+
+
+원하는 시점을 찾는다.
+
+
+![image.png](/static/images/이미지135.png)
+
+
+
+빨간색 글 참고하기.
+
+
+![image.png](/static/images/이미지136.png)
+
+
+
+원하는 지점에서 팝업을 하여 Reset ... 선택해준다.
+
+
+![image.png](/static/images/이미지137.png)
+
+
+
+`Soft로 하는것이 중요하다!`
+
+그렇지 않으면, 코드도 변경된다.
+
+
+밑에 과정까지 끝났다면, 커밋하는 파일 체크칸에 수정되지 않은 파일들이 있을것이다.
+
+그 파일들을 그대로 둔채 -> develop 브랜치를 리베이스 한다. 다음 git push -f 를 진행해준다
+
+여기까지 진행했다면 깃허브에서 확인해보면 필요없는 이력들이 전부 없어져있는 것을 확인가능하다
+
+그 다음 인텔리제이 커밋이력 파일은 그대로 다 있을건데 파일들을 하나로 묶어서 올려주면 되는 것이다.
+
+
+
+![image.png](/static/images/이미지138.png)
+
+
+
+이렇게 진행하면 코드 수정 내역들이 커밋칸에 다시 남아 있을 것이다.
+
+`그러면 파일들을 묶어서 다시 커밋 올리기` 그렇다면 이렇게 남아 있는 것을 알 수 있다.
+
+
+![image.png](/static/images/이미지139.png)
+
+
+
+다시 리베이스 한다.
+
+
+![image.png](/static/images/이미지140.png)
+
+
+
+그러면 또 충돌하는게 있을수도 있다.
+
+
+![image.png](/static/images/이미지141.png)
+
+
+
+다음 진행해주자.
+
+
+![image.png](/static/images/이미지142.png)
+
+
+
+
+그러면 이렇게 깨끗하게 어느정도 해결 된 것을 알 수 있다.
+
+
+![image.png](/static/images/이미지143.png)
+
+
+
+`그럼에도 위처럼 또 남아있다면?`
+
+위처럼 git : merge 같은 커밋 이력들만 잡아서 soft를 진행 해주면 되는 것이다.
+
+
+
+![image.png](/static/images/이미지144.png)
+
+

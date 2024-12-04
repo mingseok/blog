@@ -1,0 +1,91 @@
+---
+title: 'H2 데이터베이스 설치 과정 기록 남기기'
+date: '2024-12-01'
+tags: ['H2', '데이터베이스']
+draft: false
+summary: '설치, 설정 같은 부분들에 대해서는 시간이 지나면 까먹기 때문에 기록으로 남긴다'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+
+
+1. 사이트 들어가기.
+https://www.h2database.com/html/main.html
+
+
+2. All Downloads 선택
+
+
+![image.png](/static/images/이미지108.png)
+
+
+3. 클릭하기.
+
+
+![image.png](/static/images/이미지109.png)
+
+
+4. 버전 확인하기.
+
+![image.png](/static/images/이미지110.png)
+
+
+
+5. 나한테 맞는 버전
+
+
+![image.png](/static/images/이미지111.png)
+
+
+6. 윈도우 사용자
+
+관리자 실행 권한 부터 준 다음 chmod 755 h2.sh -> 다시 실행: h2.bat 작성 하자.
+
+(파일 나오기 명령어 : cd , 즉 → 전체 밖으로 나오고 싶을땐 cd/ ,cd C:\\Program Files\\h2\\bin 한다면 해당 파일로 경로 이동한다.)
+
+![image.png](/static/images/이미지112.png)
+
+
+
+
+들어와 진다.
+
+
+![image.png](/static/images/이미지113.png)
+
+
+7. url에 맨 앞자리가 숫자로 되어 있을것이다. -> localhost로 바꿔준다.
+- 사용자명: sa 입력
+
+![image.png](/static/images/이미지114.png)
+
+
+
+
+여기서가 중요!!
+
+현재 상태에서는 연결 시험 을 한다면 어차피 에러가 발생한다. 그렇기에 바로 ‘연결’ 을 눌러 실행한다.
+
+이 과정을 진행한다면 jdbc:h2:~/ data-jap명 으로 세팅하면 data-jap 파일이 생성되며, 사용자명과 비밀번호는 생략이 가능하다. 즉, "jdbc:h2:~/" 까지는 같고, 파일명에 따라 다르게 작성하면 된다.
+
+
+밑에 이미지를 보면 data-jap로 프로젝트 이름이 되어 있으니, data-jap라고 작성해주면 해당 이름의 파일이 생성된다.
+
+만약, 프로젝트 이름이 jpashop 이라면 jdbc:h2:~/jpashop -> 이런식으로 JDBC URL에 작성 해준다.
+
+![image.png](/static/images/이미지115.png)
+
+
+들어간 다음 바로 를 ‘연결 끊기’
+
+![image.png](/static/images/이미지116.png)
+
+
+
+다시 '연결 시험' 해본다면 성공할 것이다.
+
+![image.png](/static/images/이미지117.png)
