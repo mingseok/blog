@@ -1,11 +1,198 @@
 ---
 title: 'CPU 100% 문제 해결 시도 경험'
-date: '2024-12-07'
-tags: ['AI', '설계', '고도화']
+date: '2024-12-15'
+tags: ['CPU 사용률 100%', '스레드 덤프', '모니터링']
 draft: false
-summary: 'AI를 활용한 이력서 피드백 시스템 설계와 엣지 케이스 처리 정리'
+summary: 'AWS에서 Tesseract OCR 성능 문제를 개선한 개인적인 정리'
 ---
 
 ### Introduction
 
 <TOCInline toc={props.toc} exclude="Introduction" />
+
+## 상황
+
+![image.png](/static/images/이미지145.png)
+
+사용자가 `PDF` 파일을 업로드하면, `Tesseract OCR`을 통해 `텍스트를 추출`하는 기능을 구현했다.
+
+그러나 `AWS 프리티어(t2.micro)` 환경에서 애플리케이션이 실행 중, PDF 파일을 처리할 때 `CPU 사용률이 100%`로 고정되면서 서버가 응답하지 않는 문제가 지속적으로 발생했다.
+
+문제가 발생한 상황에서 안정적인 서비스를 제공하기 위해 다양한 방법을 시도했다. 이번 경험을 통해 성능 병목을 찾고, 해결하기 위한 작업을 진행하며 배운 기록들을 작성하겠다.
+
+![image.png](/static/images/이미지146.png)
+
+## 문제
+
+![image.png](/static/images/이미지147.png)
+
+### - CPU 100% 사용
+
+`Tesseract OCR`은 `이미지 처리`와 `텍스트 추출`을 위해 연산 집약적인 작업을 수행한다.
+
+이 과정에서 PDF 파일의 모든 페이지를 개별적으로 처리해야 하며, 특히 `PDFRenderer`를 사용해 `고해상도(기본적으로 300 DPI)` 이미지를 렌더링하는 작업은 `CPU 사용량을 급격히 증가`시킨다.
+
+결과적으로 `CPU 리소스가 100%`까지 도달하여 다른 작업을 수행할 여유가 사라지고 서버가 응답하지 않는 문제가 발생했다.
+
+### - 메모리 누수
+
+`VisualVM`으로 애플리케이션의 메모리 사용량을 분석한 결과, `byte[]` 객체가 지속적으로 메모리에 쌓이는 현상이 보였다. `PDF 파일`에서 `이미지를 추출`하거나 `OCR 작업`을 수행하는 과정에서 발생한 `메모리 누수`이다.
+
+메모리 누수로 인해 `GC(Garbage Collection)`가 적시에 수행되지 못하면서 사용 가능한 메모리가 점차 감소했고, 결과적으로 메모리 부족으로 인해 `서비스가 비정상적으로 종료`되었다.
+
+### - 스레드 과부하
+
+`Thread Dump`를 분석한 결과, 많은 스레드가 `대기 상태`로 남아 있거나 비효율적으로 작업을 수행하고 있음을 확인했다. 이는 병렬 작업의 `스케줄링`과 작업 분배가 효율적으로 이루어지지 않았다는 것이다.
+
+### - AWS 인스턴스의 성능 한계
+
+`AWS 프리티어(t2.micro)`는 `1 vCPU`와 `1GB 메모리`로 제한된 리소스를 제공한다는 것이다.
+
+`Tesseract OCR`과 `PDFRenderer`가 요구하는 높은 연산량을 감당하기에는 턱없이 부족했다. 특히 `CPU 바운드 작업인 OCR`과 `메모리 바운드 작업인 PDF 처리 작업`을 동시에 수행할 때, 리소스 병목현상이 발생하여 서버가 비정상적으로 동작했다.
+
+## 원인 + 시도
+
+`Tesseract OCR`은 고연산 작업으로 인해 높은 CPU 사용량을 유발했다..
+
+특히, `PDF 파일`이 다수의 페이지를 포함하고 있을 경우 페이지당 이미지 처리가 CPU를 과부하 상태로 만드는 것이다. `PDFRenderer`의 고해상도 이미지 처리`(DPI 설정 문제)`가 `CPU`와 메모리 사용량 증가에 영향을 준것이다.
+
+`스레드풀`이 없거나, 병렬 처리가 적절히 설계되지 않았다. `AWS 프리티어(t2.micro)`의 리소스 한계로 인해 연산 작업이 원활히 실행되지 못했다.
+
+### PDFRenderer DPI 설정 조정
+
+`PDFRenderer`에서 기본적으로 `300 DPI`로 설정된 해상도를 `150 DPI로 낮춰`, 메모리 사용량과 이미지 처리 속도를 개선 했다.
+
+```java
+BufferedImage image = renderer.renderImageWithDPI(page, 150, ImageType.GRAY);
+```
+
+### 스레드풀 도입
+
+`Tesseract OCR`의 병렬 처리를 구현하기 위해 `ExecutorService`를 사용해 스레드풀을 도입했다. 이를 통해 `CPU 작업을 분산`하고, 하나의 스레드에서 처리되는 문제를 해결하고자 했다.
+
+```java
+ExecutorService executorService = Executors.newFixedThreadPool(4);
+
+for (int page = 0; page < document.getNumberOfPages(); page++) {
+    int finalPage = page;
+    executorService.submit(() -> {
+        try {
+            BufferedImage image = renderer.renderImageWithDPI(finalPage, 150, ImageType.GRAY);
+            synchronized (extractedText) {
+                extractedText.append(tesseract.doOCR(image));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    });
+}
+executorService.shutdown();
+executorService.awaitTermination(10, TimeUnit.MINUTES);
+```
+
+### Spring Cache를 활용한 OCR 결과 캐싱
+
+같은 이미지에 대해 OCR 처리를 반복적으로 수행하지 않도록 Cache를 활용하여 결과를 캐싱했다.
+
+이를 통해 중복 연산을 줄이고 성능을 개선하였다.
+
+```java
+@Cacheable("ocrCache")
+public String getCachedPageText(BufferedImage image) throws TesseractException {
+    return tesseract.doOCR(image);
+}
+```
+
+### 도커 환경 설정 최적화
+
+`Docker Compose`를 활용한 메모리 제한 및 환경 변수 설정
+
+도커 컨테이너의 메모리와 `CPU 사용량`을 `제한`하고, 환경 변수를 설정하여 리소스 사용을 관리했다.
+
+```java
+services:
+  application:
+    image: springboot-app
+    mem_limit: 1024m
+    cpus: "1.0"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_OPTS=-XX:+UseSerialGC -Xms512m -Xmx768m
+      - SPRING_PROFILES_ACTIVE=prod
+      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
+```
+
+### VisualVM을 통한 모니터링 및 문제 분석
+
+`VisualVM`을 사용해 애플리케이션의 메모리와 CPU 사용량을 실시간으로 모니터링하며 성능 병목을 분석했다.
+
+- 메모리 누수 확인.
+
+![image.png](/static/images/이미지148.png)
+
+`byte[]` 객체가 지속적으로 메모리를 차지하며 `GC`가 정상적으로 작동하지 않는 것을 발견했다.
+
+- CPU 과부하 확인
+
+![image.png](/static/images/이미지149.png)
+
+`CPU 사용량`이 지속적으로 `100%를 유지`하며 `OCR 작업`이 주요 원인임을 확인했다.
+
+### Thread Dump를 통한 문제 진단
+
+`Thread Dump`를 통해 스레드가 대기 상태에 머무르거나 병렬 처리가 올바르게 작동하지 않는 점을 분석했다.
+
+![image.png](/static/images/이미지150.png)
+
+비효율적으로 대기 중인 스레드의 상태를 확인하며 스레드풀 설정 문제를 확인했다.
+
+http-nio-8080-exec-1~10
+
+### AWS 인스턴스 업그레이드
+
+AWS 프리티어(t2.micro) 인스턴스를 `t3.large`로 업그레이드하여 CPU와 메모리 리소스를 확장했다.
+
+![image.png](/static/images/이미지151.png)
+
+업그레이드 이후 `CPU 사용률이 감소`했으나 `OCR 작업`으로 인한 높은 리소스 요구는 여전히 존재했다..
+
+![image.png](/static/images/이미지152.png)
+
+## 결말.
+
+인스턴스를 `t2.micro에서 t3.large`로 업그레이드한 후, CPU 사용량 문제는 일부 완화되었다.
+
+t3.large는 `2개의 vCPU와 8GB의 메모리`를 제공하므로, 이전보다 더 많은 작업을 동시에 처리할 수 있게 되었다. 특히 `Tesseract OCR`의 연산량을 다루는 데 있어서 CPU 리소스의 여유가 생겼고, 애플리케이션이 중단 없이 동작할 수 있었다.
+
+`하지만`, OCR 작업 자체가 고도로 연산 집약적이기 때문에 성능 문제를 완전히 해결하지는 못했다..
+
+### 코드 최적화 노력.. 그리고 결과
+
+- `스레드풀 도입 및 병렬 처리:` 기존에는 모든 페이지를 순차적으로 처리했으나, `스레드풀`을 이용해 각 페이지를 `병렬로 처리`하도록 수정했다. 이를 통해 `CPU 사용률 분산 효과`와 함께 `OCR` 처리 속도가 일부 개선되었다.
+  - 그러나, `Tesseract OCR`은 `싱글 스레드`로 동작하기 때문에 `병렬 처리`가 완벽히 활용되지 못했다.
+- `Docker 환경:` Docker Compose를 활용하여 `메모리와 CPU 제한`을 설정하고, 각 컨테이너가 할당된 자원을 초과하지 않도록 했다. 특히, `mem_limit`과 `cpus` 설정을 통해 Docker 컨테이너가 전체 인스턴스의 리소스를 독점하지 않도록 조정했다.
+  - 하지만, OCR 작업은 여전히 Docker 컨테이너 내부에서도 `높은 리소스를 소비`하는 문제를 남겼다..
+- `DPI 개선:` PDFRenderer를 통해 생성하는 `이미지`의 DPI를 기존 `300에서 150으로 낮춰` 처리 속도를 높이고 메모리 소비를 줄였다.
+  - 그러나 OCR의 정확도가 일부 낮아지는 문제가 발생했기 때문에, 이미지 해상도와 성능 간의 적절한 균형을 찾는 데 시간이 소요되었다..
+
+
+### VisualVM 분석 및 발견.
+
+`VisualVM`으로 애플리케이션의 `CPU`, `메모리`, `스레드` 상태를 모니터링한 결과, 애플리케이션 성능의 주요 병목은 OCR 처리 과정에서 발생하는 메모리 누수와 스레드 비효율성으로 나타났다.
+
+- `메모리 누수:` VisualVM 힙 덤프에서 `byte[]` 객체가 메모리에 지속적으로 남아있는 현상을 발견했습니다. 이는 `PDF에서 고해상도 이미지`를 추출한 후 `메모리를 해제하지 않아` 발생한 문제였다. 이를 개선하기 위해 이미지 처리 후 `BufferedImage` 객체를 명시적으로 `null`로 설정하고 `GC`를 트리거했다.
+- `스레드 과부하:` Thread Dump를 분석한 결과, 많은 스레드가 `WAITING` 상태에서 대기하며 비효율적으로 동작하는 현상이 발견되었다. 병렬 작업의 적절한 `스케줄링`이 필요했으나, `OCR 작업`의 한계로 인해 완전한 해결은 어려웠다.
+
+## 회고
+
+이번 경험을 통해 단순히 `하드웨어 업그레이드`만으로는 리소스 집약적인 서비스의 문제를 완전히 해결할 수 없다는 점을 배웠다. `리소스 관리의 중요성`을 실감하며, 문제를 `체계적`으로 `분석`하고 해결 방안을 마련하는 과정에서 많은 것을 배웠다. 특히 `VisualVM`과 `Thread Dump` 분석은 문제의 원인을 명확히 파악하는 데 큰 도움을 주었다.
+
+### 공부거리
+
+- `Tomcat 내부 구조:` Catalina, NIO, http-nio-8080-exec-Poller와 Acceptor의 역할.
+- `HTTP 스레드풀:` http-nio-8080-exec-1~10의 동작 원리와 방안.
+- `보안:` 공개키와 세션키의 역할 및 작동 원리.
