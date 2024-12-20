@@ -1,0 +1,266 @@
+---
+title: 'Stateless vs Stateful 직접 구현하며 알아본 설계 차이'
+date: '2024-12-18'
+tags: ['stateless', 'stateful', 'http']
+draft: false
+summary: 'Stateless와 Stateful의 차이를 Java로 구현하며 학습한 개인적인 정리입니다'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 상황
+
+`Stateless`와 `Stateful`은 http에서 중요한 개념으로, 각 방식은 애플리케이션의 상태 관리와 요청 처리에 있어 다른 접근 방식을 제공한다. 실제 프로젝트에서 두 방식의 차이를 명확히 이해하지 못하면 설계에서 혼란이 생길 수 있다고 판단했다.
+
+그리하여, `Java`를 사용해 Stateless와 Stateful 동작을 `시뮬레이션`하는 토이 프로젝트를 진행했다. 각각의 동작 방식을 구현하고, 특정 시나리오에서 어떤 방식이 더 적합한지 비교하는 것을 목표로 했다.
+
+### 왜 Stateless와 Stateful을 구현해야 했을까?
+
+`Stateless`와 `Stateful`은 각각의 장단점이 명확한 개념이다.
+
+- Stateless는 서버가 상태를 유지하지 `않으므로` 확장성이 뛰어나고, 요청 처리 과정이 단순하다. `RESTful API`와 같은 설계에 적합하다.
+- Stateful은 요청 간 상태를 `저장`하므로 클라이언트의 상태 정보를 활용한 세션 기반 작업에 유리하다. 예를 들어 사용자 인증 세션, 게임 상태 관리 등이라고 할 수 있다.
+
+그러나 실제 프로젝트에서는 Stateless와 Stateful을 구분해 적용하지 못하거나, 상태 관리의 복잡성을 간과해 설계가 비효율적이 되는 경우가 많다.
+
+## 문제
+
+### Stateless와 Stateful의 개념적 차이 이해 부족
+
+Stateless는 `상태를 저장하지 않고` 요청마다 `독립적`으로 처리하며, Stateful은 `요청 간 상태를 저장`하고 이를 `활용`하는 방식이다.
+
+이 두 개념은 이론적으로는 명확하지만, 실제 코드로 구현하려고 할 때 각 방식의 동작을 어떻게 명확히 표현해야 하는지 고민이 많았다.
+
+특히, Stateless에서는 상태 저장이 없어야 하지만 특정 작업에서 상태 저장이 필요하다고 느껴지는 상황이 발생했고, Stateful에서는 저장된 상태를 관리하는 방법에 어려움이 있었다.
+
+### 상태 관리의 복잡성
+
+Stateful 방식에서 클라이언트별 상태를 저장하려면, 각 클라이언트의 `고유한 식별자`와 그에 대한 상태를 저장하는 로직이 필요하다.
+
+이 과정에서 `상태 초기화`, 상태 누락 등 다양한 `예외 상황`이 발생했다. 로그아웃된 클라이언트가 작업을 요청했을 때 이를 어떻게 처리할지 명확히 정의하지 않아 프로그램의 일관성이 깨지는 문제가 발생했다.
+
+### 시뮬레이션 시나리오 부족
+
+Stateless와 Stateful 간의 차이를 명확히 보여주기 위해 다양한 시나리오를 구성하려고 했다.하지만 초기 설계 단계에서는 구체적인 시나리오를 정의하지 않아, 디버깅 과정에서 불필요한 시간이 소요되었다.
+
+여러 클라이언트가 동시에 요청했을 때 상태 관리가 제대로 이루어지는지, 또는 Stateless 환경에서 다중 요청이 문제없이 처리되는지 확인할 테스트 케이스가 미흡했다.
+
+## 시퀀스 다이어그램
+
+### Stateless 요청 처리
+
+Stateless 방식에서는 클라이언트 상태를 저장하지 않고, 각 요청을 독립적으로 처리한다.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant StatelessService
+
+    Client->>StatelessService: 요청 (Action: "로그인")
+    StatelessService-->>Client: 응답 ("로그인 처리 완료")
+
+    Client->>StatelessService: 요청 (Action: "대시보드 보기")
+    StatelessService-->>Client: 응답 ("대시보드 보기 처리 완료")
+
+    Client->>StatelessService: 요청 (Action: "로그아웃")
+    StatelessService-->>Client: 응답 ("로그아웃 처리 완료")
+
+```
+
+### Stateful 요청 처리
+
+Stateful 방식에서는 클라이언트 상태를 서버에 저장하며, 요청 간 상태를 참조해 작업을 수행한다.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant StatefulService
+
+    Client->>StatefulService: 로그인 요청
+    StatefulService-->>Client: 응답 ("로그인 성공")
+    StatefulService->>StatefulService: 상태 저장 ("로그인 상태")
+
+    Client->>StatefulService: 작업 요청 ("대시보드 보기")
+    StatefulService->>StatefulService: 상태 확인 ("로그인 상태")
+    StatefulService-->>Client: 응답 ("대시보드 보기 처리 완료")
+
+    Client->>StatefulService: 로그아웃 요청
+    StatefulService->>StatefulService: 상태 삭제
+    StatefulService-->>Client: 응답 ("로그아웃 성공")
+
+```
+
+### 요약
+
+- `Stateless 다이어그램`은 요청이 독립적으로 처리되는 모습을 보여준다.
+- `Stateful 다이어그램`은 클라이언트 상태가 서버에 저장되고, 이후 요청 처리에 영향을 미치는 과정을 시각화한다.
+- Stateless와 Stateful 비교 다이어그램은 두 방식의 차이를 이해할 수 있도록 제공한다.
+
+## 구현
+
+### Stateless 구현
+
+```java
+class StatelessService {
+    public String processRequest(String clientId, String action) {
+        // 요청을 독립적으로 처리
+        return clientId + " 클라이언트 요청 처리: " + action + " (시간: " + System.currentTimeMillis() + ")";
+    }
+}
+
+public class StatelessSimulation {
+    public static void main(String[] args) {
+        StatelessService service = new StatelessService();
+
+        // 클라이언트 UUID 생성
+        String client1 = UUID.randomUUID().toString();
+        String client2 = UUID.randomUUID().toString();
+
+        // 클라이언트 요청 처리 시뮬레이션
+        System.out.println(service.processRequest(client1, "로그인"));
+        System.out.println(service.processRequest(client2, "대시보드 보기"));
+        System.out.println(service.processRequest(client1, "로그아웃"));
+    }
+}
+
+```
+
+### Stateful 구현
+
+```java
+class StatefulService {
+    private Map<String, String> clientStates = new HashMap<>();
+
+    public void login(String clientId) {
+        clientStates.put(clientId, "로그인 상태");
+        System.out.println(clientId + " 클라이언트 로그인 완료");
+    }
+
+    public void performAction(String clientId, String action) {
+        if (!clientStates.containsKey(clientId)) {
+            System.out.println(clientId + " 클라이언트는 로그인되지 않음. 요청 거부");
+            return;
+        }
+        System.out.println(clientId + " 클라이언트 작업 수행: " + action + " (" + clientStates.get(clientId) + ")");
+    }
+
+    public void logout(String clientId) {
+        clientStates.remove(clientId);
+        System.out.println(clientId + " 클라이언트 로그아웃 완료");
+    }
+}
+
+public class StatefulSimulation {
+    public static void main(String[] args) {
+        StatefulService service = new StatefulService();
+
+        // 클라이언트 UUID 생성
+        String client1 = UUID.randomUUID().toString();
+        String client2 = UUID.randomUUID().toString();
+
+        // 클라이언트 1 시뮬레이션
+        service.login(client1);
+        service.performAction(client1, "대시보드 보기");
+        service.logout(client1);
+
+        // 클라이언트 2 로그인 없이 요청
+        service.performAction(client2, "상품 검색");
+
+        // 클라이언트 2 로그인 후 요청
+        service.login(client2);
+        service.performAction(client2, "상품 구매");
+    }
+}
+
+```
+
+### Stateless와 Stateful 동시 시뮬레이션
+
+```java
+class StatelessService {
+    public String processRequest(String clientId, String action) {
+        return clientId + " 클라이언트 요청 처리: " + action + " (시간: " + System.currentTimeMillis() + ")";
+    }
+}
+
+class StatefulService {
+    private Map<String, String> clientStates = new HashMap<>();
+
+    public void login(String clientId) {
+        clientStates.put(clientId, "로그인 상태");
+        System.out.println(clientId + " 클라이언트 로그인 완료");
+    }
+
+    public void performAction(String clientId, String action) {
+        if (!clientStates.containsKey(clientId)) {
+            System.out.println(clientId + " 클라이언트는 로그인되지 않음. 요청 거부");
+            return;
+        }
+        System.out.println(clientId + " 클라이언트 작업 수행: " + action + " (" + clientStates.get(clientId) + ")");
+    }
+
+    public void logout(String clientId) {
+        clientStates.remove(clientId);
+        System.out.println(clientId + " 클라이언트 로그아웃 완료");
+    }
+}
+
+public class StatelessStatefulSimulation {
+    public static void main(String[] args) {
+        StatelessService statelessService = new StatelessService();
+        StatefulService statefulService = new StatefulService();
+
+        // 클라이언트 UUID 생성
+        String client1 = UUID.randomUUID().toString();
+        String client2 = UUID.randomUUID().toString();
+
+        // Stateless 요청 처리
+        System.out.println(statelessService.processRequest(client1, "서버 상태 확인"));
+        System.out.println(statelessService.processRequest(client2, "서버 상태 확인"));
+
+        // Stateful 클라이언트 1 로그인 및 작업 처리
+        statefulService.login(client1);
+        statefulService.performAction(client1, "대시보드 보기");
+        statefulService.logout(client1);
+
+        // Stateless는 상태와 관계없이 동작 가능
+        System.out.println(statelessService.processRequest(client1, "서버 상태 확인"));
+
+        // Stateful 클라이언트 2 작업 처리
+        statefulService.performAction(client2, "상품 검색"); // 로그인되지 않아 요청 거부
+        statefulService.login(client2);
+        statefulService.performAction(client2, "상품 구매");
+    }
+}
+
+```
+
+위 코드에서는 Stateless와 Stateful의 차이를 시뮬레이션했다.
+
+- `Stateless` 서비스는 클라이언트 상태와 관계없이 요청을 처리하며, 각 `요청은 독립적`이다.
+- `Stateful` 서비스는 클라이언트 `상태를 저장`하며, 상태에 따라 요청을 처리하거나 거부한다.
+
+## 해결
+
+- 가장 먼저, Stateless와 Stateful의 동작을 각각 독립적으로 설계하고 구현했다.
+  - `Stateless 설계:` 서버가 상태를 저장하지 않고, `요청마다 독립적`으로 처리하도록 간단한 메서드 호출 기반으로 설계했다. 클라이언트의 `고유 식별자(UUID)`와 요청 데이터를 전달받아 결과를 반환하는 형태로 구현했다.
+  - `Stateful 설계:` 클라이언트별로 상태를 저장하기 위해 `Map<String, String>` 구조를 활용했다. `클라이언트 ID를 키`로 사용하여 상태를 저장하고, 요청 시 상태를 확인하거나 업데이트하는 로직을 추가했다.
+
+- Stateful 방식에서는 다음과 같은 예외 상황을 고려한 로직을 추가했다.
+  - `로그인되지 않은 클라이언트 요청:` 클라이언트가 로그인 없이 작업을 요청하면, "로그인되지 않은 클라이언트입니다"라는 메시지를 출력하고 요청을 거부하도록 구현했다.
+  - `로그아웃된 클라이언트 요청:` 로그아웃 후 클라이언트가 작업을 요청하면, 상태를 초기화했기 때문에 동일한 처리로 요청을 거부했다.
+
+## 결말
+
+이번 프로젝트는 단순히 Stateless와 Stateful의 `이론적 차이`를 이해하는 것을 넘어, 이를 `실제 코드로 구현`하며 실질적인 경험을 쌓는 기회가 되었다.
+
+`Stateless`는 서버가 상태를 저장하지 않으므로, 확장성과 처리 속도가 뛰어난 설계 방식임을 확인했다. 각 요청이 독립적으로 처리되기 때문에 요청 간의 간섭이 없으며, 클라이언트의 상태를 서버에 유지하지 않아도 되는 `RESTful API`와 같은 서비스에 적합하다는 것을 깨달았다.
+
+`Stateful`은 클라이언트의 `상태를 저장`하여, 세션 기반 애플리케이션에서 필요한 요구사항을 충족시킬 수 있었다. 로그인 상태 유지, `쇼핑몰의 장바구니`, `게임의 플레이어 진행 상태` 등과 같은 기능에서 중요한 역할을 한다는 점을 이해했다.
+
+### 프로젝트를 마치며
+
+이번 구현은 단순히 이론을 구현하는 데서 그치지 않고, 해결 과정을 통해 학습하고 성장하는 경험을 했다. `Stateless`와 `Stateful`이라는 두 가지 설계 방식은 각기 `다른 장단점`을 지니고 있으며, 애플리케이션 `요구사항`에 따라 적합한 방식을 선택하는 것이 중요하다는 점을 깨달았다. 앞으로 이러한 개념과 경험을 바탕으로 더 나은 소프트웨어 설계를 만들어 나갈 수 있을 것이다.
