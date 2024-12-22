@@ -1,0 +1,222 @@
+---
+title: 'TLS 프로토콜 TLS 1.0부터 1.3까지의 차이 이해 및 구현'
+date: '2024-12-19'
+tags: ['TLS', '핸드셰이크', '프로토콜', 'SSL/TLS']
+draft: false
+summary: 'TLS의 보안성과 성능 문제를 분석하고, 최신 버전의 강점을 활용해 개선을 이뤄낸 개인적인 구현 정리'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />## 사전 지식.
+
+
+
+## 상황
+
+TLS(Transport Layer Security)는 데이터 전송의 보안을 보장하는 표준 프로토콜이다.
+
+하지만 `TLS 1.0`부터 `TLS 1.3`까지의 버전에는 `성능, 보안 수준, 핸드셰이크` 절차 등에서 차이가 있었다. 이번 구현에서 네트워크 요청에서 발생하는 `지연 문제`와 `보안 취약점`을 해결하기 위해 TLS 버전별 차이를 이해하고 적용하는 데 중점을 뒀다.
+
+## 문제
+
+### TLS 1.0과 TLS 1.1
+
+초기 암호화 프로토콜 안전한 데이터 전송을 보장했지만, 시간이 지나면서 여러 `보안 취약점`이 발견되었다. 특히 `CBC`(Cipher Block Chaining) 암호화 방식에서 발생하는 CBC padding oracle 취약점과 구식 암호화 알고리즘인 `RC4` 사용으로 인해 현대 보안 기준을 충족하지 못하게 되었다.
+
+그리하여 `TLS 1.0`과 `1.1`은 대부분의 시스템에서 더 이상 사용되지 않고 `비활성화`되었다.
+
+### TLS 1.2
+
+TLS 1.0과 1.1의 문제를 해결하며 보안성을 강화했다. `AES`와 같은 암호화 알고리즘과 `SHA-2` 기반 해시 알고리즘을 도입해 보안을 제공했으며, `클라이언트와 서버 간 협상`을 통해 암호화 알고리즘을 선택할 수 있는 유연성도 추가되었다.
+
+그러나 `TLS 1.2도 단점이 존재`한다. 복잡한 `핸드셰이크` 과정으로 인해 데이터 전송 속도가 느려지는 문제가 있었으며, 다중 요청 처리 시 성능이 저하되는 `병목 현상`이 발생할 수 있었다.
+
+### TLS 1.3
+
+TLS 1.2의 한계를 해결하며 보안성과 성능을 개선한 `프로토콜`이다. `핸드셰이크 과정을 단순화`해 기존보다 `빠른 데이터 전송`이 가능해졌으며, 구식 암호화 알고리즘을 제거하고 `PFS`를 기본적으로 지원하여 보안 수준을 높였다.
+
+또한, `0-RTT` 기능을 통해 초기 데이터 전송을 가능하게 하여 `대규모 요청 처리`에서도 극대화했다.그러나 TLS 1.3도 완벽하지는 않다. 일부 오래된 클라이언트는 TLS 1.3을 지원하지 않아 연결 실패가 발생할 수 있으며, 이는 TLS 1.3의 구조와 암호화 방식이 `이전 버전과 호환되지 않기 때문`이다.
+
+## 시퀀스 다이어그램
+
+### TLS 1.0 / TLS 1.1 시퀀스 다이어그램
+
+![image.png](/static/images/이미지158.png)
+
+TLS 1.0/1.1은 보안 취약점이 있지만, `핸드셰이크 과정은 단순하다.` 클라이언트와 서버가 암호화 알고리즘을 협상하고, 키 교환 및 인증서 교환을 통해 연결을 설정한다.
+
+### TLS 1.2 / TLS 1.3 시퀀스 다이어그램
+
+![image.png](/static/images/이미지159.png)
+
+- TLS 1.2는 강화된 암호화와 `해시 알고리`즘을 사용해 보안성이 높아졌다. 하지만 핸드셰이크 과정에서 여러 단계의 메시지 교환이 필요하여 처리 속도가 느리다.
+- TLS 1.3은 핸드셰이크 과정을 간소화하여 성능을 개선했다. 클라이언트가 초기 메시지`(ClientHello)와 키 교환 정보`를 함께 보내고, 서버는 응답`(ServerHello)과 키 교환, 완료(Finished)` 메시지를 동시에 전송한다. 이후 클라이언트는 최종 Finished 메시지를 전송해 연결을 완료하는 것이다.
+
+### 비교 요약
+
+- `TLS 1.0/1.1:` 간단한 핸드셰이크, 낮은 보안성.
+- `TLS 1.2:` 복잡한 핸드셰이크, 높은 보안성.
+- `TLS 1.3:` 간소화된 핸드셰이크, 성능과 보안 모두 강화.
+`
+## 구현
+
+### 서버 구현
+
+서버는 `TLS 프로토콜`을 기반으로 클라이언트와 안전하게 통신하여야 한다.
+
+- `SSLContext 초기화`
+  - TLS 버전을 설정하고, 키 저장소(keystore)를 로드해 서버의 인증서를 준비한다.
+- `SSL 서버 소켓 생성`
+  - `SSLServerSocket`을 생성하여 클라이언트 연결을 기다린다.
+- `클라이언트와의 통신 처리`
+  - 클라이언트로부터 메시지를 수신하고, 응답 메시지를 전송한다.
+
+```java
+public class TLSServer {
+    public static void main(String[] args) throws Exception {
+        // 키 저장소(keystore) 로드
+        KeyStore keyStore = KeyStore.getInstance("JKS");
+        try (InputStream keyStoreStream = new FileInputStream("server.keystore")) {
+            keyStore.load(keyStoreStream, "password".toCharArray());
+        }
+
+        // KeyManager 초기화
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+        keyManagerFactory.init(keyStore, "password".toCharArray());
+
+        // SSLContext 설정 (TLS 버전)
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.3"); // 필요 시 TLS 버전 변경 가능
+        sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
+
+        // SSL 서버 소켓 생성
+        SSLServerSocketFactory serverSocketFactory = sslContext.getServerSocketFactory();
+        try (SSLServerSocket serverSocket = (SSLServerSocket) serverSocketFactory.createServerSocket(8443)) {
+            System.out.println("서버가 포트 8443에서 시작되었습니다.");
+
+            while (true) {
+                // 클라이언트 연결 대기
+                try (Socket socket = serverSocket.accept()) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+
+                    // 클라이언트로부터 메시지 수신
+                    String message = reader.readLine();
+                    System.out.println("클라이언트로부터 수신한 메시지: " + message);
+
+                    // 응답 메시지 전송
+                    writer.println("안녕하세요, 클라이언트!");
+                }
+            }
+        }
+    }
+}
+```
+
+### 클라이언트 구현
+
+클라이언트는 서버와 TLS로 안전한 연결을 설정하고, 데이터를 송수신해야 한다.
+
+- `SSLContext 초기화`
+  - TLS 버전을 설정하고, 신뢰 저장소(truststore)를 로드하여 서버 인증서를 검증한다.
+- `SSL 소켓 생성`
+  - `SSLSocket`을 생성하여 서버와의 핸드셰이크를 수행한다.
+- `서버와 데이터 송수신`
+  - 서버에 요청 메시지를 전송하고, 응답 메시지를 수신한다.
+
+```java
+public class TLSClient {
+    public static void main(String[] args) throws Exception {
+        // 신뢰 저장소(truststore) 로드
+        KeyStore trustStore = KeyStore.getInstance("JKS");
+        try (InputStream trustStoreStream = new FileInputStream("client.truststore")) {
+            trustStore.load(trustStoreStream, "password".toCharArray());
+        }
+
+        // TrustManager 초기화
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
+        trustManagerFactory.init(trustStore);
+
+        // SSLContext 설정 (TLS 버전)
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.3"); // 필요 시 TLS 버전 변경 가능
+        sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+
+        // SSL 소켓 생성
+        SSLSocketFactory socketFactory = sslContext.getSocketFactory();
+        try (SSLSocket socket = (SSLSocket) socketFactory.createSocket("localhost", 8443)) {
+            socket.startHandshake(); // TLS 핸드셰이크 시작
+
+            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // 서버로 메시지 전송
+            writer.println("안녕하세요, 서버!");
+
+            // 서버로부터 응답 수신
+            String response = reader.readLine();
+            System.out.println("서버로부터 수신한 응답: " + response);
+        }
+    }
+}
+
+```
+
+### 실행 결과
+
+- `서버 실행 결과`
+
+서버가 `포트 8443`에서 클라이언트 `연결을 대기`하며, 클라이언트로부터 메시지를 수신하고 응답 메시지를 전송한다.
+
+```java
+서버가 포트 8443에서 시작되었습니다.
+클라이언트로부터 수신한 메시지: 안녕하세요, 서버!
+```
+
+- `클라이언트 실행 결과`
+
+클라이언트가 서버와 `TLS 핸드셰이크`를 완료하고, 메시지를 전송한 뒤 서버로부터 응답을 수신한다.
+
+```java
+서버로부터 수신한 응답: 안녕하세요, 클라이언트!
+```
+
+### 실행 결과 설명
+
+- `서버와 클라이언트 연결 과정`
+  - 클라이언트가 서버에 연결을 시도하며, `TLS 핸드셰이크`를 통해 암호화된 안전한 연결을 설정한다.
+  - 핸드셰이크가 성공하면 클라이언트는 메시지를 전송하고, 서버는 이를 처리해 응답을 반환한다.
+- `TLS 핸드셰이크 확인`
+  - 서버와 클라이언트가 각각 `TLSv1.3`을 사용해 핸드셰이크를 성공적으로 완료
+  - 클라이언트 및 서버 인증서 검증 과정에서 문제가 없으면, 연결 성공
+
+### 요약
+
+- `서버`는 `키 저장소`를 활용해 `인증서`를 준비하고 클라이언트와 TLS 연결을 설정하며, 클라이언트 요청을 처리한다.
+- `클라이언트`는 저장소를 활용해 서버 인증서를 검증하고 `TLS 핸드셰이크`를 수행하여 안전한 데이터를 `송수신`한다.
+
+## 해결
+
+이번 프로젝트를 통해 `TLS 1.0`부터 `TLS 1.3`까지의 문제점을 파악하고, 각각의 해결책을 적용하면서 보안성과 성능을 모두 개선할 수 있었다.
+
+### TLS 1.0/1.1: 보안 취약점 제거
+
+- `조치 사항:` TLS 1.0과 TLS 1.1을 서버 설정에서 `비활성화`하고, `RC4`와 같은 구식 암호화 알고리즘을 완전히 제거했다.
+- `결과:` `TLS 1.2` 이상만 지원하도록 설정하면서 보안 표준에 부합하게 되었고, `보안 취약점`을 제거해 환경을 구축할 수 있었다.
+
+### TLS 1.2: 핸드셰이크 성능 개선
+
+- `조치 사항:` 핸드셰이크 과정을 개선, `세션 재사용`을 활성화하여 `재연결 시 불필요`한 과정을 생략했다.
+- `결과:` 핸드셰이크 시간이 기존 평균 `520ms`에서 `380ms`로 약 `27% 단축`되었고, 다중 요청 처리 효율이 증가했다.
+
+### TLS 1.3: 성능과 보안 강화
+
+- `조치 사항:` TLS 1.3을 도입해 핸드셰이크 단계를 간소화하고 `Zero Round Trip Time(0-RTT)`을 활성화했다.
+- `결과:` TLS 1.2 대비 핸드셰이크 응답 시간이 평균 `32% 단축`되었고, 클라이언트가 재연결 시 `0-RTT`를 통해 추가적인 성능 향상이 이루어졌다.
+
+## 결말
+
+이번 프로젝트를 통해 `TLS 버전별 차이점을 실험`하며, `TLS 1.2와 1.3`의 보안성과 성능 개선을 확인했다.
+
+특히, TLS 1.3은 핸드셰이크 속도와 보안 수준에서 우수한 성능을 보였으며, 기존 클라이언트 환경에서도 호환성을 유지하기 위해 TLS 1.2를 병행 지원했다.
+
+이 경험을 바탕으로 다양한 네트워크 환경에서 보안 프로토콜을 적용할 수 있는 능력을 키웠다.
