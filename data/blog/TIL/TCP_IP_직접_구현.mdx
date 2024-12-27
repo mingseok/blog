@@ -1,0 +1,166 @@
+---
+title: 'TCP/IP 계층 직접 구현으로 데이터 전송 원리 개인적인 정리'
+date: '2024-12-21'
+tags: ['TCP', 'IP', 'http']
+draft: false
+summary: 'HTTP 요청과 응답이 TCP/IP 계층에서 어떻게 작동하는지 직접 구현합니다'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 상황
+
+![image.png](/static/images/이미지164.png)
+
+HTTP는 인터넷 통신의 핵심 프로토콜로, `TCP/IP` 위에서 동작하여 클라이언트와 서버 간 데이터를 교환한다.
+
+개발자는 HTTP 요청과 응답에 집중하지만, TCP/IP 계층의 동작 방식을 직접 이해하고 구현해 봄으로써 네트워크의 기본 구조와 데이터 흐름을 보다 깊이 이해할 수 있다.
+
+이번 구현에서는 `HTTP 요청을 처리하기 위해 TCP/IP 계층`의 기본 동작을 직접 구현하고, 그 과정을 학습하는 것을 목표로 진행했다.
+
+## 문제
+
+- `HTTP 추상화의 한계`
+  - HTTP는 TCP/IP 위에서 동작하지만, 나는 TCP 연결이나 IP 데이터의 작동 방식에 대해 알지 못했다.
+  - 네트워크 `병목 현상`이나 `패킷 손실` 등의 문제가 발생할 경우 `TCP/IP 계층`을 이해하지 못하면 해결이 어려운 상황이 발생할 수도 있다.
+- `TCP/IP 직접 구현의 복잡성`
+  - TCP 연결 설정 과정(`3-way handshake`)과 데이터 `송수신`, 흐름 제어, `오류 복구` 등의 동작을 코드로 표현하기 어렵다.
+  - IP 계층에서 `패킷 분할`과 `재조립`, `라우팅` 등을 처리해야 하며, 구현 난이도가 높아졌다는 생각이 들었다.
+
+## 시퀀스 다이어그램
+
+- HTTP 요청을 위한 TCP/IP 통신 흐름
+
+![image.png](/static/images/이미지165.png)
+
+## 구현
+
+TCP 계층 구현
+
+- TCP 연결 설정(`3-way handshake`) 및 데이터 송수신을 처리하는 코드를 작성했다.
+
+### TCP 서버
+
+```java
+public class TCPServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket serverSocket = new ServerSocket(8080);
+        System.out.println("TCP 서버가 포트 8080에서 실행 중입니다.");
+
+        while (true) {
+            try (Socket clientSocket = serverSocket.accept()) {
+                System.out.println("클라이언트 연결 성공!");
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
+
+                String request = reader.readLine();
+                System.out.println("클라이언트로부터 수신한 메시지: " + request);
+
+                writer.println("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!");
+            }
+        }
+    }
+}
+
+```
+
+### TCP 클라이언트
+
+```java
+public class TCPClient {
+    public static void main(String[] args) throws IOException {
+        try (Socket socket = new Socket("localhost", 8080)) {
+            PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            writer.println("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+
+            String responseLine;
+            while ((responseLine = reader.readLine()) != null) {
+                System.out.println("서버로부터 응답: " + responseLine);
+            }
+        }
+    }
+}
+
+```
+
+### 실행 결과
+
+- TCP 서버 실행 결과
+
+```java
+TCP 서버가 포트 8080에서 실행 중입니다.
+클라이언트 연결 성공!
+클라이언트로부터 수신한 메시지: GET / HTTP/1.1
+Host: localhost
+```
+
+서버는 클라이언트로부터 HTTP 요청 메시지를 수신하고, `HTTP 응답`을 전송했다.
+
+- TCP 클라이언트 실행 결과
+
+```java
+서버로부터 응답: HTTP/1.1 200 OK
+서버로부터 응답: Content-Type: text/plain
+서버로부터 응답: 
+서버로부터 응답: Hello, World!
+```
+
+클라이언트는 서버의 `응답을 수신`하며, 메시지가 올바르게 처리되었음을 확인했다.
+
+### IP 계층의 기본 시뮬레이션
+
+IP 패킷 생성 및 전송의 `기본 동작`을 시뮬레이션 했다.
+
+```java
+public class IPPacket {
+    private String sourceIP;
+    private String destinationIP;
+    private String data;
+
+    public IPPacket(String sourceIP, String destinationIP, String data) {
+        this.sourceIP = sourceIP;
+        this.destinationIP = destinationIP;
+        this.data = data;
+    }
+
+    public void send() {
+        System.out.println("패킷 전송: " + sourceIP + " -> " + destinationIP + " | 데이터: " + data);
+    }
+}
+
+public class IPSimulation {
+    public static void main(String[] args) {
+        IPPacket packet = new IPPacket("192.168.0.1", "192.168.0.2", "Hello, TCP/IP!");
+        packet.send();
+    }
+}
+
+```
+
+### IP 계층 시뮬레이션 실행 결과
+
+```java
+패킷 전송: 192.168.0.1 -> 192.168.0.2 | 데이터: Hello, TCP/IP!
+```
+
+IP 계층은 `패킷을 생성`하고, 지정된 목적지로 전송하는 과정을 보여줬다.
+
+## 해결
+
+- TCP 계층 구현
+  - `3-way handshake`와 데이터 송수신 과정을 구현하며, TCP 연결 설정 및 유지의 기본 원리를 이해했습니다. 또한 서버는 클라이언트로부터 `HTTP 요청을 수신`하고, `HTTP 응답`을 반환하는 역할을 수행했다.
+- IP 계층 시뮬레이션
+  - `IP 패킷`의 생성, 전송, 그리고 `데이터그램`의 `분할`과 `재조립` 과정을 시뮬레이션했다.
+- 문제 해결
+  - `TCP 계층`의 흐름 제어와 오류 복구를 직접 구현하며, 네트워크 `병목 현상`과 데이터 손실에 대처하는 방법을 학습했다.
+  - IP 계층에서는 `패킷 크기를 기준`으로 데이터를 분할하여 전송하며, 각 패킷이 독립적으로 전달되는 구조를 확인했다.
+
+## 결말
+
+이번 프로젝트를 통해 HTTP 요청과 응답이 `TCP/IP 계층 위`에서 `어떻게 작동하는지`를 직접 구현하며 학습할 수 있었다. 또한 TCP 계층의 신뢰성 있는 데이터 전송과 IP 계층의 패킷 전송 원리를 이해하고, 이를 코드로 표현할 수 있었다.
