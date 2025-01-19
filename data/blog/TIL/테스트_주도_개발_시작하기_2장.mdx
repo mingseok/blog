@@ -1,0 +1,396 @@
+---
+title: '테스트 주도 개발로 은행 계좌 시스템과 게시판 CRUD 구현하기'
+date: '2024-01-19'
+tags: ['테스트 주도 개발', 'TDD']
+draft: false
+summary: 'TDD를 활용해 은행 계좌 시스템과 게시판 CRUD를 구현하며 테스트 코드 작성 과정 개인적인 정리.'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 상황
+
+![image.png](/static/images/이미지179.png)
+
+지금까지 상항 이런 생각들 때문에 테스트 코드를 작성하지 못했다.
+
+- 메서드 이름은 plus가 좋을까? 아니면 sum이 좋을까?
+- 덧셈 기능을 제공하는 메서드는 파라미터가 몇개여야 할까?
+  - 파라미터의 타입은?
+  - 반환할 값은?
+- 메서드를 정적 메서드로 구현할까? 인스턴스 메서드로 구현할까?
+- 메서드를 제공할 클래스 이름은 뭐가 좋을까?
+
+이런 고민들의 시작으로 ‘테스트 주도 개발 시작하기’ 책을 읽게 되었다.
+
+<br/>
+
+### 앞으로의 진행 방향
+
+- `단순히 책을 읽고 정리하는 데 그치지 않고`, 책에서 배운 내용을 실제로 적용해보는 방향으로 나아가려고 한다.
+- 책에서 제시된 내용을 읽는 데서 멈추지 않고, `직접 구현하며 이해`를 심화하는 방식으로 학습할 계획이다.
+- 또한, 단순히 `책의 예시 내용을 따라 하기보다는 스스로 생각한 예시를 작성하고 구현`해보며, `개인적인 경험을 녹여낸 글을 작성`하려고 한다.
+
+<br/>
+
+## 은행 계좌 시스템 개발
+
+계좌는 사용자가 입금, 출금, 잔액 조회 기능을 수행할 수 있어야 한다.
+
+또한, 계좌의 잘못된 사용(예: 잔액보다 많은 금액 출금)에 대한 방어 로직도 포함해야 한다.
+
+- 이 요구사항을 충족시키기 위해 TDD를 적용해본다.
+
+<br/>
+
+## 문제 정의
+
+- 계좌를 생성했을 때 기본 잔액은 0이어야 한다.
+- 사용자가 돈을 입금하면 잔액이 증가해야 한다.
+- 사용자가 돈을 출금하면 잔액이 감소해야 한다.
+- 잔액보다 많은 금액을 출금하려 할 경우 예외를 발생시켜야 한다.
+
+이제 TDD 프로세스를 통해 문제를 하나씩 해결해 보자.
+
+<br/>
+
+## 구현 과정 (TDD 단계별 진행)
+
+### 1. 실패하는 테스트 작성 (Red Phase)
+
+- 시스템의 원하는 동작을 테스트 코드로 작성한다.
+
+이 단계에서 `BankAccount` 클래스는 아직 존재하지 않으며, 테스트는 당연히 실패한다.
+
+```java
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class BankAccountTest {
+
+    @DisplayName("새로 생성된 계정에는 잔액이 0이어야 한다")
+    @Test
+    void newlyCreatedAccountShouldHaveZeroBalance() {
+        BankAccount account = new BankAccount();
+        assertEquals(0, account.getBalance());
+    }
+
+    @DisplayName("보증금 잔액이 증가해야 한다.")
+    @Test
+    void depositShouldIncreaseBalance() {
+        BankAccount account = new BankAccount();
+        account.deposit(1000);
+        assertEquals(1000, account.getBalance());
+    }
+
+    @DisplayName("인출 잔액이 감소해야 한다.")
+    @Test
+    void withdrawShouldDecreaseBalance() {
+        BankAccount account = new BankAccount();
+        account.deposit(1000);
+        account.withdraw(500);
+        assertEquals(500, account.getBalance());
+    }
+
+    @DisplayName("인출 잔액보다 더 많은 잔액을 빼는 상황 -> 예외 발생")
+    @Test
+    void withdrawMoreThanBalanceShouldThrowException() {
+        BankAccount account = new BankAccount();
+        account.deposit(500);
+        assertThrows(IllegalArgumentException.class, () -> account.withdraw(1000));
+    }
+}
+```
+
+- 위 테스트는 각각 계좌의 초기 상태, 입금/출금 기능, 그리고 예외 상황을 검증한다.
+- 현재는 `BankAccount` 클래스가 구현되지 않았기 때문에 테스트가 실패한다.
+
+### 2. 최소한의 구현 (Green Phase)
+
+테스트를 통과시키기 위한 최소한의 코드를 작성한다.
+
+기능이 단순하고 테스트가 통과하는 데 필요한 코드를 우선적으로 구현한다.
+
+```java
+package com.example.demo;
+
+public class BankAccount {
+
+    private int balance;
+
+    // 초기 잔액 0원
+    public BankAccount() {
+        this.balance = 0;
+    }
+
+    // 잔액 조회
+    public int getBalance() {
+        return balance;
+    }
+
+    // 입금
+    public void deposit(int amount) {
+        if(amount <= 0) {
+            throw new IllegalArgumentException("입금 금액을 확인하세요.");
+        }
+        balance += amount;
+    }
+
+    // 출금
+    public void withdraw(int amount) {
+        if (amount > balance) {
+            throw new IllegalArgumentException("잔액이 부족합니다.");
+        }
+        balance -= amount;
+    }
+}
+
+```
+
+- 기본 잔액은 0으로 초기화 된다.
+- 입금과 출금 시, 유효성 검사를 통해 잘못된 입력을 방지한다.
+- `IllegalArgumentException`을 사용해 비정상적인 행동을 방어 한다.
+
+### 3. 리팩토링 (Refactor Phase)
+
+코드의 기능이 완성되었다면, 구조를 개선하여 가독성과 재사용성을 높이는 리팩토링을 진행한다.
+
+```java
+public class BankAccount {
+    private int balance;
+
+    public BankAccount() {
+        this.balance = 0;
+    }
+
+    public int getBalance() {
+        return balance;
+    }
+
+    public void deposit(int amount) {
+        validateAmount(amount);
+        balance += amount;
+    }
+
+    public void withdraw(int amount) {
+        validateAmount(amount);
+        if (amount > balance) {
+            throw new IllegalArgumentException("잔액이 부족합니다.");
+        }
+        balance -= amount;
+    }
+
+    private void validateAmount(int amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("금액은 양수여야 합니다.");
+        }
+    }
+}
+
+```
+
+- 유효성 검사 로직 분리: `validateAmount` 메서드를 추가하여 중복 코드를 제거했다.
+
+<br/>
+
+## 테스트 결과
+
+![image.png](/static/images/이미지180.png)
+
+<br/>
+
+## 게시판 CRUD 기능 테스트 코드 작성 해보기
+
+게시판 게시글에 대한 기본 `CRUD` 기능을 테스트하기 위해 코드를 구현 해보기 위해, Spring Boot와 JUnit을 기반으로 작성 한다.
+
+<br/>
+
+## 요구사항
+
+1. 게시글 작성:
+ - 게시글은 제목과 내용을 포함해야 한다.
+ - 작성된 게시글은 데이터베이스에 저장되어야 한다.
+2. 게시글 조회:
+ - 특정 게시글을 ID로 조회할 수 있어야 한다.
+ - 모든 게시글 리스트를 조회할 수 있어야 한다.
+3. 게시글 수정:
+ - 특정 게시글의 제목과 내용을 수정할 수 있어야 한다.
+4. 게시글 삭제:
+ - 특정 게시글을 ID로 삭제할 수 있어야 한다.
+
+<br/>
+
+## 엔티티와 리포지토리
+
+Post 엔티티: 게시판 게시글을 위한 기본 엔티티 이다.
+
+```java
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+public class Post {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false, length = 1000)
+    private String content;
+}
+
+```
+
+### PostRepository
+
+게시글 데이터 접근을 위한 JPA 리포지토리 인터페이스 이다.
+
+```java
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface PostRepository extends JpaRepository<Post, Long> {
+}
+
+```
+
+<br/>
+
+## 테스트 코드 작성
+
+`PostRepository`와 `PostService`를 테스트하는 JUnit 코드이다.
+
+```java
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@SpringBootTest
+@Transactional
+class PostServiceTest {
+
+    @Autowired
+    private PostRepository postRepository;
+
+    @Test
+    @DisplayName("게시글을 생성하면 데이터베이스에 저장된다.")
+    void testCreatePost() {
+        // given (테스트 준비)
+        Post post = new Post();
+        post.setTitle("제목");
+        post.setContent("내용");
+
+        // when (테스트 실행)
+        Post savedPost = postRepository.save(post);
+
+        // then (검증)
+        assertNotNull(savedPost.getId());
+        assertEquals("제목", savedPost.getTitle());
+        assertEquals("내용", savedPost.getContent());
+    }
+
+    @Test
+    @DisplayName("ID로 게시글을 조회할 수 있다.")
+    void testReadPostById() {
+        // given (테스트 준비)
+        Post post = new Post();
+        post.setTitle("조회 제목");
+        post.setContent("조회 내용");
+        Post savedPost = postRepository.save(post);
+
+        // when (테스트 실행)
+        Optional<Post> retrievedPost = postRepository.findById(savedPost.getId());
+
+        // then (검증)
+        assertTrue(retrievedPost.isPresent());
+        assertEquals("조회 제목", retrievedPost.get().getTitle());
+        assertEquals("조회 내용", retrievedPost.get().getContent());
+    }
+
+    @Test
+    @DisplayName("모든 게시글을 조회할 수 있다.")
+    void testReadAllPosts() {
+        // given (테스트 준비)
+        Post post1 = new Post();
+        post1.setTitle("게시글 1");
+        post1.setContent("내용 1");
+
+        Post post2 = new Post();
+        post2.setTitle("게시글 2");
+        post2.setContent("내용 2");
+
+        postRepository.save(post1);
+        postRepository.save(post2);
+
+        // when (테스트 실행)
+        List<Post> posts = postRepository.findAll();
+
+        // then (검증)
+        assertEquals(2, posts.size());
+    }
+
+    @Test
+    @DisplayName("게시글을 수정하면 변경된 값이 저장된다.")
+    void testUpdatePost() {
+        // given (테스트 준비)
+        Post post = new Post();
+        post.setTitle("원래 제목");
+        post.setContent("원래 내용");
+        Post savedPost = postRepository.save(post);
+
+        // when (테스트 실행)
+        savedPost.setTitle("수정된 제목");
+        savedPost.setContent("수정된 내용");
+        Post updatedPost = postRepository.save(savedPost);
+
+        // then (검증)
+        assertEquals("수정된 제목", updatedPost.getTitle());
+        assertEquals("수정된 내용", updatedPost.getContent());
+    }
+
+    @Test
+    @DisplayName("게시글을 삭제하면 데이터베이스에서 삭제된다.")
+    void testDeletePost() {
+        // given (테스트 준비)
+        Post post = new Post();
+        post.setTitle("삭제할 제목");
+        post.setContent("삭제할 내용");
+        Post savedPost = postRepository.save(post);
+
+        // when (테스트 실행)
+        postRepository.deleteById(savedPost.getId());
+
+        // then (검증)
+        Optional<Post> deletedPost = postRepository.findById(savedPost.getId());
+        assertFalse(deletedPost.isPresent(), "게시글이 삭제되어야 한다.");
+    }
+}
+
+```
+
+<br/>
+
+### 결론
+
+![image.png](/static/images/이미지181.png)
+
+이번 경험을 통해 TDD, Spring Data JPA, 테스트 코드 작성 등 개발의 중요한 요소를 실습하며, 시스템을 설계하는 방법을 알게 되었다.
+
+앞으로도 TDD 책을 더 읽고 활용하여 코드를 작성하고, 리팩토링과 테스트를 통해 지속적으로 코드를 개선해 나가고 싶다.
