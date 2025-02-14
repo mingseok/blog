@@ -62,8 +62,7 @@ summary: 'Event Sourcing에 대해 데이터 변경을 이벤트로 관리하고
 - 쓰기와 읽기 데이터 모델이 다르므로 `데이터 동기화 전략`이 필요함.
   - e.g. Command DB와 Query DB가 분리되어 있기 때문에, 비동기 이벤트 처리 과정에서 데이터 정합성을 유지하기 위한 동기화 전략
 
-
-<BR/>
+<br/>
 
 ## 문제
 
@@ -84,7 +83,7 @@ CQRS를 적용하면서 Command와 Query 모델을 분리했는데, Projection(�
 - e.g. 주문이 생성된 직후 조회를 하면 주문이 보이지 않는 경우가 있었다. `이벤트가 저장되면 Projection DB에 즉시 반영되도록 이벤트 리스너를 개선`했다.
 
 
-<BR/>
+<br/>
 
 ## 구현
 
@@ -257,7 +256,7 @@ public class OrderQueryController {
 }
 ```
 
-<BR/>
+<br/>
 
 ## 실행 결과
 
@@ -324,7 +323,7 @@ Projection 테이블 상태 (업데이트됨)
 ![image.png](/static/images/이미지194.png)
 
 
-<BR/>
+<br/>
 
 ## 해결
 
@@ -341,7 +340,7 @@ Projection 테이블 상태 (업데이트됨)
   - 일정 개수의 이벤트가 쌓이면 현재 상태를 저장하는 Snapshot을 생성하도록 했다.
   - 이렇게 하면 과거 데이터를 조회할 때 Snapshot에서 바로 불러올 수 있어 성능이 개선되었다.
 
-<BR/>
+<br/>
 
 ## 결말
 
