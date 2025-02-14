@@ -271,7 +271,7 @@ EventStore 테이블 상태
 
 | id | aggregateId | eventType | eventData | createdAt |
 | --- | --- | --- | --- | --- |
-| 1 | 12345 | OrderCreatedEvent | {"orderId":...} | 2025-02-14 10:00:00 |
+| 1 | 12345 | OrderCreatedEvent | `{"orderId": "12345"}` | 2025-02-14 10:00:00 |
 
 Projection 테이블 상태
 
@@ -309,8 +309,8 @@ EventStore 테이블 상태 (이벤트 추가됨)
 
 | id | aggregateId | eventType | eventData | createdAt |
 | --- | --- | --- | --- | --- |
-| 1 | 12345 | OrderCreatedEvent | {"orderId":...} | 2025-02-14 10:00:00 |
-| 2 | 12345 | OrderPaidEvent | {"orderId":...} | 2025-02-14 10:05:00 |
+| 1 | 12345 | OrderCreatedEvent | `{"orderId": "12345"}` | 2025-02-14 10:00:00 |
+| 2 | 12345 | OrderPaidEvent | `{"orderId": "12345"}` | 2025-02-14 10:05:00 |
 
 Projection 테이블 상태 (업데이트됨)
 
