@@ -1,0 +1,271 @@
+---
+title: 'Real MySQL 옵티마이저 개인적인 정리'
+date: '2025-02-06'
+tags: ['Real MySQL']
+draft: false
+summary: '옵티마이저와 힌트, 그리고 비용 기반 최적화를 활용해 테이블 통계에 대해서 정리한 글입니다.'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 개요
+
+MySQL에서 동일한 결과를 도출하는 방법은 여러 가지가 있다. 옵티마이저는 쿼리를 분석하고 최적의 실행 계획을 수립하여 성능을 향상시키는 역할을 한다.
+
+MySQL에서는 `EXPLAIN` 명령을 통해 실행 계획을 확인할 수 있으며, 활용하면 쿼리의 성능을 개선하는 데 도움이 된다.
+
+## 옵티마이저의 종류
+
+- 규칙 기반 최적화 (=RBO)
+  - 미리 정의된 규칙을 기반으로 실행 계획을 결정한다.
+  - 통계 정보를 고려하지 않으며, 항상 같은 실행 방법을 선택한다.
+  - 간단한 쿼리에서는 유용하지만, 복잡한 데이터 패턴을 `최적화하는 데 한계`가 있다.
+- 비용 기반 최적화 (=CBO)
+  - 여러 실행 계획을 `시뮬레이션`하여 가장 `낮은 비용`을 가진 계획을 선택한다.
+  - 테이블 통계 정보를 바탕으로 옵티마이저가 최적의 경로를 찾는다.
+  - 데이터의 분포와 크기를 기반으로 최적의 인덱스 및 조인 방식을 결정한다.
+  - MySQL을 포함한 대부분의 최신 `RDBMS는 비용 기반 최적화`를 사용한다.
+
+<br/>
+
+## 쿼리 실행 절차
+
+MySQL에서 쿼리는 밑에 있는 단계들을 거쳐 실행되는 구조이다.
+
+- SQL 파싱
+  - SQL 문장을 MySQL이 이해할 수 있는 수준으로 변환하여 `SQL 파스 트리`를 생성한다.
+  - `문법 오류`를 검사하고 쿼리를 분해한다.
+  - `WHERE`, `JOIN`, `ORDER BY` 등의 조건을 해석하여 트리를 구성한다.
+- 실행 계획 수립
+  - 옵티마이저가 SQL 파스 트리를 확인하며 최적의 실행 계획을 결정한다.
+  - 테이블을 읽는 순서, 인덱스 활용 여부, 정렬 및 그룹핑 방식 등이 결정된다.
+  - `조인 순서` 및 `인덱스 선택`이 중요한 역할을 한다.
+  - 가능한 실행 계획을 비교하여 가장 효율적인 방식을 선택한다.
+- 쿼리 실행
+  - 최적화된 실행 계획을 바탕으로 스토리지 엔진에서 데이터를 읽고 가공하여 결과를 반환한다.
+  - 필요한 경우 내부적으로 임시 테이블을 사용하여 데이터를 정렬하고 그룹핑한다.
+  - 결과를 클라이언트에 반환하며, 결과 세트가 크면 스트리밍 방식으로 전달할 수 있다.
+
+<br/>
+
+## 기본 데이터 처리 방식
+
+### 풀 테이블 스캔과 풀 인덱스 스캔
+
+- 풀 테이블 스캔
+  - 테이블의 모든 레코드를 읽는 방식으로, 인덱스를 활용하지 않는다.
+  - 테이블이 작을 경우 인덱스를 사용하는 것보다 효율적일 수 있다.
+  - 적절한 `WHERE` 절 조건이 없거나, 너무 많은 데이터가 일치할 경우 발생한다.
+  - 읽기 속도를 높이기 위해 `리드 어헤드` 기법을 사용한다.
+
+```sql
+-- 풀 테이블 스캔이 발생하는 경우
+SELECT * FROM employees;
+
+-- 실행 전: 인덱스가 없고, 전체 테이블을 스캔함.
+SELECT * FROM employees WHERE department = 'Engineering';
+```
+
+- 실행 결과
+  - `type: ALL` (Full Table Scan 발생)
+  - `possible_keys: NULL` (사용할 수 있는 인덱스 없음)
+
+### 풀 인덱스 스캔
+  - 특정 컬럼을 조회하는 경우, 테이블이 아니라 인덱스를 처음부터 끝까지 읽는다.
+  - `SELECT COUNT(*) FROM employees;` 같은 쿼리는 테이블 대신 인덱스를 읽어 성능을 최적화한다.
+  - 인덱스가 정렬되어 있어 범위 검색 시 유용하게 활용된다.
+
+```sql
+-- 인덱스를 활용한 풀 인덱스 스캔
+SELECT COUNT(*) FROM employees;
+```
+
+## 병렬 처리
+
+- 하나의 쿼리를 여러 스레드가 병렬로 처리할 수 있다.
+- `innodb_parallel_read_threads` 시스템 변수를 조정하여 병렬 처리 성능을 향상시킬 수 있다.
+- 대량 데이터 조회 시 성능 향상에 유리하지만, 오버헤드가 발생할 수 있으므로 설정값을 조정해야 한다.
+- 특정 쿼리에서 병렬 실행을 유도하려면 `ANALYZE TABLE`을 실행하여 통계 정보를 최신 상태로 유지하는 것이 중요하다.
+
+```sql
+-- 병렬 쿼리 설정 조정
+SET GLOBAL innodb_parallel_read_threads = 4;
+```
+
+<br/>
+
+## 정렬(ORDER BY) 처리 방식
+
+### 인덱스를 이용한 정렬
+
+- 이미 인덱스가 정렬된 상태이므로, 순차적으로 읽기만 하면 된다.
+- 인덱스를 활용하면 추가적인 정렬 연산이 필요하지 않아 성능이 좋다.
+- 하지만, 다중 컬럼 정렬 시 모든 경우의 수에 대해 인덱스를 생성하기 어렵다.
+- 실행 계획의 `Extra` 컬럼에 별도 정렬 정보가 나타나지 않는 경우, 인덱스를 활용한 정렬이 수행된 것이다.
+
+```sql
+-- 인덱스를 활용한 정렬
+CREATE INDEX idx_lastname ON employees(last_name);
+SELECT * FROM employees ORDER BY last_name;
+```
+
+### Filesort를 이용한 정렬
+
+- 별도의 정렬 과정이 필요하며, 레코드가 많아질수록 성능이 저하된다.
+  - 다만, 인덱스를 따로 생성하지 않아도 되므로 데이터 수정 작업이 많은 경우 적절할 수 있다.
+- `EXPLAIN` 실행 계획의 `Extra` 컬럼에 `Using filesort`가 표시되면 Filesort 방식이 사용된다.
+- 정렬된 결과를 임시 테이블에 저장하고, 필요할 때 다시 불러오는 방식이다.
+
+```sql
+-- Filesort가 발생하는 정렬
+SELECT * FROM employees ORDER BY department, salary;
+```
+
+<br/>
+
+## 소트 버퍼와 정렬 알고리즘
+
+- 정렬을 수행하기 위해 MySQL은 소트 버퍼라는 별도의 메모리 공간을 사용한다.
+- 정렬 방식에는 `싱글 패스 정렬`과 `투 패스 정렬`이 있다.
+  - `싱글 패스 정렬:` 정렬 대상 컬럼과 함께 필요한 데이터를 소트 버퍼에 담아 정렬 후 바로 결과를 반환한다.
+  - `투 패스 정렬:` 정렬 대상 컬럼과 PK만 소트 버퍼에 담아 정렬 후, 다시 테이블을 읽어 필요한 데이터를 가져온다.
+- `max_length_for_sort_data` 값을 초과하는 경우나 `BLOB`, `TEXT` 데이터가 포함된 경우에는 투 패스 정렬을 사용하게 된다.
+- 정렬 속도를 높이기 위해 `sort_buffer_size`를 조정할 수 있으며, 너무 크게 설정하면 메모리 부족 문제가 발생할 수 있다.
+
+```sql
+-- 실행 전: 다중 컬럼 정렬 시 Filesort 발생
+EXPLAIN SELECT * FROM employees ORDER BY department, salary;
+```
+
+
+
+### SQL 개선
+
+- `Extra: Using filesort` (메모리 또는 디스크를 이용한 정렬 필요)
+
+```sql
+-- 실행 후: 인덱스를 추가하여 Filesort 방지
+CREATE INDEX idx_department_salary ON employees(department, salary);
+EXPLAIN SELECT * FROM employees ORDER BY department, salary;
+```
+
+<br/>
+
+## GROUP BY 처리 방식
+
+GROUP BY 역시 데이터를 정렬해야 하는 연산이므로 성능 최적화가 중요하다.
+
+MySQL은 GROUP BY 연산을 처리하기 위해 인덱스를 활용하거나, 임시 테이블을 생성하는 등의 다양한 방식을 사용한다.
+
+### 인덱스를 이용한 GROUP BY
+
+- 이미 정렬된 인덱스를 스캔하면서 그룹핑을 수행한다.
+- `EXPLAIN` 실행 계획에서 `Extra` 컬럼에 별도 코멘트가 없으면 인덱스를 활용한 것이다.
+- `GROUP BY` 컬럼이 인덱스의 첫 번째 컬럼이어야 효과적으로 활용할 수 있다.
+
+```sql
+-- 실행 전: department 컬럼에 인덱스가 없을 때 GROUP BY 실행
+EXPLAIN SELECT department, COUNT(*) FROM employees GROUP BY department;
+```
+
+실행 결과
+
+- `type: ALL` (Full Table Scan 발생)
+- `Extra: Using temporary; Using filesort` (임시 테이블과 정렬 필요)
+
+### SQL 개선
+
+```sql
+-- 실행 후: 인덱스를 추가하여 성능 개선
+CREATE INDEX idx_department ON employees(department);
+EXPLAIN SELECT department, COUNT(*) FROM employees GROUP BY department;
+```
+
+실행 결과
+
+- `type: index` (인덱스를 활용하여 그룹핑)
+- `Extra: NULL` (임시 테이블 사용 없이 정렬 수행)
+
+<br/>
+
+### 루스 인덱스 스캔
+
+- 인덱스를 건너뛰면서 필요한 값만 읽어 그룹핑을 수행한다.
+- `EXPLAIN` 실행 계획에서 `Using index for group-by`가 표시되면 루스 인덱스 스캔을 사용한 것이다.
+- 데이터 분포에 따라 성능 차이가 발생할 수 있다.
+
+```sql
+-- 실행 전: from_date 컬럼에 인덱스가 없을 때 GROUP BY 실행
+EXPLAIN SELECT emp_no FROM salaries WHERE from_date = '1985-03-01' GROUP BY emp_no;
+```
+
+실행 결과
+
+- `type: ALL` (Full Table Scan 발생)
+- `Extra: Using temporary; Using filesort` (임시 테이블과 정렬 필요)
+
+### SQL 개선
+
+```sql
+-- 실행 후: 인덱스를 추가하여 성능 개선
+CREATE INDEX idx_salary_date ON salaries(emp_no, from_date);
+EXPLAIN SELECT emp_no FROM salaries WHERE from_date = '1985-03-01' GROUP BY emp_no;
+```
+
+실행 결과:
+
+- `type: index` (인덱스를 활용한 루스 인덱스 스캔 수행)
+- `Extra: Using index for group-by` (임시 테이블 없이 처리)
+
+<br/>
+
+### 임시 테이블을 이용한 GROUP BY
+
+- 인덱스를 전혀 사용하지 못할 경우, 내부적으로 임시 테이블을 생성하여 그룹핑을 수행한다.
+- 일반적으로 성능이 가장 낮은 방식이다.
+- 많은 데이터가 포함될 경우 디스크 기반 임시 테이블이 생성될 수 있다.
+
+```sql
+-- 실행 전: 인덱스를 활용하지 못하는 GROUP BY 실행
+EXPLAIN SELECT department, AVG(salary) 
+FROM employees GROUP BY department ORDER BY salary DESC;
+```
+
+실행 결과
+
+- `type: ALL` (Full Table Scan 발생)
+- `Extra: Using temporary; Using filesort` (임시 테이블과 정렬 필요)
+
+### SQL 개선
+
+```sql
+-- 실행 후: 인덱스를 추가하여 성능 개선
+CREATE INDEX idx_department_salary ON employees(department, salary);
+
+EXPLAIN SELECT department, AVG(salary) 
+FROM employees GROUP BY department ORDER BY salary DESC;
+```
+
+실행 결과
+
+- `type: index` (인덱스를 활용한 GROUP BY 수행)
+- `Extra: NULL` (임시 테이블 사용 없이 최적화된 정렬 수행)
+
+<br/>
+
+## 요약
+
+MySQL 옵티마이저는 최적의 실행 계획을 수립하여 쿼리 성능을 개선하는 역할을 한다.
+
+비용 기반 최적화를 활용해 테이블 통계 정보를 분석하고, 실행 계획을 최적화한다.
+
+### 주요 내용
+
+- 쿼리 실행 절차: SQL 파싱 → 실행 계획 수립 → 쿼리 실행
+- 데이터 조회 최적화: 인덱스를 활용하여 `Full Table Scan`을 피하고, `EXPLAIN`으로 실행 계획을 분석
+- 정렬 최적화: 인덱스를 활용한 정렬로 `Filesort` 최소화
+- GROUP BY 최적화: `Loose Index Scan`을 활용하면 성능이 향상되며, 인덱스를 추가하여 임시 테이블 사용을 방지
+- 실용적인 팁: 적절한 인덱스 추가, `sort_buffer_size` 조정, 병렬 쿼리 활용(MySQL 8.0 이상)
