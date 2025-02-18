@@ -1,6 +1,6 @@
 ---
 title: 'IP 기반 위치 조회 구현 개인적인 정리'
-date: '2025-02-19'
+date: '2025-02-18'
 tags: ['사이드 프로젝트']
 draft: false
 summary: 'IP 기반으로 사용자 위치를 조회하는 기능을 구현하는 과정을 정리한 글입니다.'
@@ -15,17 +15,20 @@ summary: 'IP 기반으로 사용자 위치를 조회하는 기능을 구현하�
 
 IP 기반으로 사용자 위치를 조회하는 기능을 구현하는 과정에서 여러 문제가 발생했다.
 
-특히, X-Forwarded-For 헤더 문제, 공인 IP 조회 방식, Argument Resolver 적용 과정에서의 예외 발생 등의 이슈를 경험했다.
+특히, `X-Forwarded-For 헤더` 문제, 공인 IP 조회 방식, `Argument Resolver` 적용 과정에서의 예외 발생 등의 이슈를 경험했다.
 
 이러한 문제들을 해결한 과정을 상세히 다루고자 한다.
 
 ## 상황
 
-클라이언트의 IP를 기반으로 위치 정보를 조회하는 기능이 필요했다. 외부 API를 활용하여 IP 정보를 가져오고, 해당 IP의 위치 정보를 조회하는 방식을 고려했다.
+클라이언트의 IP를 기반으로 위치 정보를 조회하는 기능이 필요했다.
+
+외부 API를 활용하여 IP 정보를 가져오고, 해당 IP의 위치 정보를 조회하는 방식을 고려했다.
 
 주요 요구사항:
 
 - 클라이언트의 IP를 추출하여 위치 정보를 가져와야 한다.
+
 - API를 활용하여 공인 IP를 조회하고, 해당 IP의 위치 정보를 반환해야 한다.
 - 로컬 환경에서도 운영 환경에서 동일한 방식으로 동작해야 한다.
 - 컨트롤러에서 직접 서비스를 호출하지 않고, Argument Resolver를 활용하여 위치 정보를 자동으로 주입해야 한다.
@@ -34,7 +37,7 @@ IP 기반으로 사용자 위치를 조회하는 기능을 구현하는 과정�
 
 ### 발생한 문제
 
-![20250218_141954.png](attachment:76413995-5dbd-4c25-9f64-ca99586e2bdd:20250218_141954.png)
+![image.png](/static/images/이미지195.png)
 
 - API를 통해 클라이언트의 IP를 조회하려 했으나, `X-Forwarded-For` 값이 항상 null로 출력되는 문제가 발생했다.
 - 이미지와 같이, `curl` 요청을 보냈을 때 "원격 서버에 연결할 수 없습니다."라는 오류가 발생했다.
@@ -85,7 +88,7 @@ public class PublicIpProvider {
 
 ### 발생한 문제
 
-![image.png](attachment:e31db3e6-bcb0-45a8-a0ac-31d61efe5fb0:image.png)
+![image.png](/static/images/이미지196.png)
 
 - 공인 IP 조회 기능을 적용한 후, 외부 API에서 반환된 데이터를 처리하는 과정에서 NumberFormatException이 발생했다.
 - 이미지와 같이, "empty String"을 `Double.parseDouble()`로 변환하려다 예외가 발생했다.
@@ -127,7 +130,7 @@ private double[] extractLatLong(JsonNode root) {
 
 ## Argument Resolver 적용하여 자동 주입
 
-```java
+```
 IP는 컨트롤러 앞단에서 처리하는 게 좋다?
 ```
 
@@ -148,5 +151,4 @@ IP는 컨트롤러 앞단에서 처리하는 게 좋다?
 - IP 기반 위치 조회 시스템을 구축할 때 고려해야 할 사항을 학습했다.
 - 로컬과 운영 환경의 차이를 고려한 해결 방법 적용 경험했다.
 - Argument Resolver를 활용한 자동 주입 방식의 이점 경험했다.
-
 
