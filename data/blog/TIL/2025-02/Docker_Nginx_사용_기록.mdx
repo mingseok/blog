@@ -24,10 +24,10 @@ summary: 'Docker로 서비스를 실행하고, Nginx로 연결을 관리하며 H
 
 - 설치 프로그램을 실행하고, 안내에 따라 설치를 완료한다.
 - 설치가 끝나면 Docker Desktop을 실행하고, Docker가 제대로 작동하는지 확인한다.
-     - 명령 프롬프트(cmd) 창에서 밑에 명령어를 작성하여 확인하기.
+   - 명령 프롬프트(cmd) 창에서 밑에 명령어를 작성하여 확인하기.
 
-  ```java
-  docker --version
+```java
+docker --version
   ```
 
 
@@ -44,7 +44,7 @@ summary: 'Docker로 서비스를 실행하고, Nginx로 연결을 관리하며 H
 
 - 인텔리제이에서 프로젝트의 루트 디렉토리 즉, `src` 디렉토리가 있는 폴더에 `Dockerfile`이라는 파일을 생성해준다.
 - `Dockerfile` 파일에 다음과 같은 내용을 추가한다.
-    - `(프로젝트의 JAR 파일을 컨테이너에 복사)` → 항목은 각자의 프로젝트에서의 `build`를 통해 생성된 `jar`파일 이름을 작성하는 것이다.
+  - `(프로젝트의 JAR 파일을 컨테이너에 복사)` → 항목은 각자의 프로젝트에서의 `build`를 통해 생성된 `jar`파일 이름을 작성하는 것이다.
 
 ```java
 # OpenJDK 17을 기반으로 한 Docker 이미지 사용
@@ -61,12 +61,12 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
 - 프로젝트 빌드 및 Docker 이미지 생성하기
-    - 이제 Docker 이미지를 생성하는 과정이다. 4번 과정을 한번 더 빌드해서 JAR 파일을 만든 후, Docker 이미지로 변환하는 작업이다.
-    - 빌드를 완료 하였다면 밑에 명령어를 `인텔리제이 터미널` or `cmd`에서 실행시킨다.
-         - 실행 시킬때는 해당 프로젝트 파일에서의 Dockerfile이 있는 위치까지 가서 실행 시킨다.
+  - 이제 Docker 이미지를 생성하는 과정이다. 4번 과정을 한번 더 빌드해서 JAR 파일을 만든 후, Docker 이미지로 변환하는 작업이다.
+  - 빌드를 완료 하였다면 밑에 명령어를 `인텔리제이 터미널` or `cmd`에서 실행시킨다.
+   - 실행 시킬때는 해당 프로젝트 파일에서의 Dockerfile이 있는 위치까지 가서 실행 시킨다.
 
-  ```java
-  docker build -t springboot-app .
+```java
+docker build -t springboot-app .
   ```
 
 
@@ -77,11 +77,11 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ![image.png](/static/images/이미지26.png)
 
 - Docker 컨테이너 실행하기
-    - 이제 생성된 이미지를 컨테이너로 실행해볼 수 있다.
-    - 다음 명령어로 Docker 컨테이너를 실행한다.
+  - 이제 생성된 이미지를 컨테이너로 실행해볼 수 있다.
+  - 다음 명령어로 Docker 컨테이너를 실행한다.
 
-  ```java
-  docker run -p 8080:8080 springboot-app
+```java
+docker run -p 8080:8080 springboot-app
   ```
 
 
@@ -107,7 +107,7 @@ docker pull nginx
 ![image.png](/static/images/이미지28.png)
 
 - Nginx Docker 컨테이너 실행하기
-    - Docker 명령어로 Nginx 실행한다
+  - Docker 명령어로 Nginx 실행한다
 
 ```java
 docker run --name my-nginx -p 80:80 -d nginx
@@ -128,7 +128,7 @@ docker run --name my-nginx -p 80:80 -d nginx
 ![image.png](/static/images/이미지30.png)
 
 - Nginx 설정 파일 만들기.
-    - Nginx 설정 파일 (`nginx.conf`) 생성하기
+  - Nginx 설정 파일 (`nginx.conf`) 생성하기
 
 이제 `Nginx`가 클라이언트로부터 `HTTPS(SSL)` 요청을 받고, 내부적으로 `Spring Boot` 애플리케이션에 요청을 전달하도록 설정 파일을 작성하는 것이다.
 
@@ -180,8 +180,8 @@ http {
 ```
 
 - SSL 인증서 생성하기
-    - 밑에 링크를 들어가서 설치한다.
-    - https://slproweb.com/products/Win32OpenSSL.html
+  - 밑에 링크를 들어가서 설치한다.
+  - https://slproweb.com/products/Win32OpenSSL.html
 
 ![image.png](/static/images/이미지31.png)
 
@@ -250,10 +250,10 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx-selfsigned.key
 ![image.png](/static/images/이미지37.png)
 
 - Docker Compose 설정 작성
-    - Docker Compose를 사용하면, `로컬에 있는 인증서 파일을 컨테이너 내로 마운트`할 수 있다.
-        - 이 과정을 통해 Nginx가 SSL 인증서와 비밀 키 파일을 사용할 수 있게 되는 것이다.
-    - Nginx와 Spring Boot 애플리케이션을 함께 실행할 수 있도록 `Docker Compose` 파일을 작성한다.
-    - Docker Compose는 여러 컨테이너를 동시에 관리하고 실행할 수 있게 도와주는 것이다..
+  - Docker Compose를 사용하면, `로컬에 있는 인증서 파일을 컨테이너 내로 마운트`할 수 있다.
+  - 이 과정을 통해 Nginx가 SSL 인증서와 비밀 키 파일을 사용할 수 있게 되는 것이다.
+  - Nginx와 Spring Boot 애플리케이션을 함께 실행할 수 있도록 `Docker Compose` 파일을 작성한다.
+  - Docker Compose는 여러 컨테이너를 동시에 관리하고 실행할 수 있게 도와주는 것이다..
 
 ```java
 version: '3'
@@ -279,21 +279,21 @@ services:
 
 - `application`: Spring Boot 애플리케이션 컨테이너. `8080` 포트에서 실행되고, Nginx가 리버스 프록시로 이를 받아 클라이언트에게 전달한다.
 - `nginx`: Nginx 컨테이너. `80`번 포트에서 HTTP 요청을 받고 `443`번 포트에서 HTTPS 요청을 받음.
-  - `volumes`: 로컬 파일 시스템의 `nginx.conf`와 SSL 인증서를 Nginx 컨테이너 내부로 마운트.
-  - `depends_on`: Spring Boot 애플리케이션이 먼저 실행되어야 Nginx가 실행됨.
+- `volumes`: 로컬 파일 시스템의 `nginx.conf`와 SSL 인증서를 Nginx 컨테이너 내부로 마운트.
+- `depends_on`: Spring Boot 애플리케이션이 먼저 실행되어야 Nginx가 실행됨.
 
 - Docker Compose 실행
-    - Docker Compose로 Nginx와 Spring Boot 애플리케이션을 실행한다.
-    - 인텔리제이에서 명령어를 입력한다.
-        - 주의사항은 프로젝트의 `src`, `dockerfile`, `docker-compose` 폴더가 있는 위치에서 명령어를 입력해야 된다는 것이다.
+  - Docker Compose로 Nginx와 Spring Boot 애플리케이션을 실행한다.
+  - 인텔리제이에서 명령어를 입력한다.
+  - 주의사항은 프로젝트의 `src`, `dockerfile`, `docker-compose` 폴더가 있는 위치에서 명령어를 입력해야 된다는 것이다.
 
-  ```java
-  docker-compose up --build
-    ```
+```java
+docker-compose up --build
+```
 
 - 이 명령어는 `Docker Compose`로 두 개의 컨테이너`(Nginx와 Spring Boot)`를 빌드하고 실행해준다.
 - SSL 적용 확인
-  - 이제 브라우저에서 `https://localhost`로 접속하면, SSL이 적용된 Nginx를 통해 Spring Boot 애플리케이션에 접근할 수 있다.
+- 이제 브라우저에서 `https://localhost`로 접속하면, SSL이 적용된 Nginx를 통해 Spring Boot 애플리케이션에 접근할 수 있다.
 
 ![image.png](/static/images/이미지38.png)
 
@@ -310,9 +310,9 @@ services:
 ## 마지막 정리.
 
 - `https://localhost`로 입력했을 때 이전에 `localhost:8080`에서 보이던 `Spring Boot 애플리케이션` 화면이 정상적으로 출력 되었다.
-  - Nginx가 SSL 설정과 함께 `리버스 프록시` 역할을 제대로 수행하고 있는 것이다.
+- Nginx가 SSL 설정과 함께 `리버스 프록시` 역할을 제대로 수행하고 있는 것이다.
 - 즉, Nginx가 `HTTPS 포트(443)`에서 들어오는 요청을 받아서 `Spring Boot 애플리케이션(8080)`으로 전달하고, 그 결과를 브라우저에 출력하는 과정이 모두 정상적으로 동작하고 있는 상태인 것이다.
-  - 성공적으로 `Nginx`와 `Spring Boot` 애플리케이션이 `Docker` 환경에서 `SSL`을 통해 연결된 것을 알 수 있었다.
+- 성공적으로 `Nginx`와 `Spring Boot` 애플리케이션이 `Docker` 환경에서 `SSL`을 통해 연결된 것을 알 수 있었다.
 
 ## 실행 시키고 싶을때.
 
