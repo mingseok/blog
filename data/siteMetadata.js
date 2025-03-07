@@ -3,7 +3,7 @@ const siteMetadata = {
   title: 'mingseok\'s blog',
   author: 'mingseok',
   headerTitle: 'mingseok\'s blog',
-  description: '정하는 중...',
+  description: '밍석의 devlog',
   language: 'ko-kr',
   theme: 'dark', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
