@@ -1,0 +1,230 @@
+---
+title: 'AI 피드백 정확도 측정 기준과 실험 결과'
+date: '2025-03-11'
+tags: ['AI', 'CoT']
+draft: false
+summary: 'AI 이력서 피드백에 CoT + Few-shot Learning을 적용해 정확도가 37.3% 향상됨을 실험으로 검증했다.'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 문제 정의: AI 피드백의 실질적 가치 평가
+
+- 이력서 분석 서비스에서 AI가 제공하는 피드백이 지원자에게 실질적으로 도움이 되는지 평가하는 기준이 필요했다.
+- 단순히 문법적으로 올바른 문장을 생성하는 것이 아니라, `AI의 피드백이 지원자의 경험과 기술을 반영하여 구체적이고 실용적인지` 를 분석해야 했다.
+
+### 면접관님의 관점에서 생각하기
+
+이력서 피드백이 효과적이려면 `면접관님이 지원자를 평가하는 방식`을 고려해야 한다.
+
+```java
+면접관님은 무엇을 평가할까?
+```
+
+- 지원자가 빠르게 새로운 기술과 개념을 학습할 수 있는가?
+- 주어진 문제를 논리적으로 해결할 수 있는가?
+
+`즉, AI가 제공하는 피드백도 이러한 기준을 충족해야 한다.`
+
+`구체적인 개선 방향과 논리적인 근거가 있는 피드백이 유용하다고 판단했다.`
+
+### 논리적인 사고 과정이 중요한 이유
+
+이력서 피드백도 단순한 코멘트가 아니라 논리적인 근거를 기반으로 작성되어야 한다.
+
+예를 들어, `"기술 스택을 보완하세요"`라는 피드백은 너무 일반적이고 모호하다.
+
+논리적 근거가 포함된 개선된 피드백 예시.
+
+```java
+"기술 스택에 Redis와 Docker 활용 경험을 추가하면 성능 최적화 역량을 강조할 수 있습니다."
+```
+
+이러한 방식으로 AI가 피드백을 생성하도록 개선해야 했다.
+
+<br/>
+
+## AI 피드백 정확도 측정 방법
+
+### 정확도 계산 공식
+
+예를 들어, AI가 총 30개의 피드백을 생성했고, 그중에서 21개가 유용한 피드백이었다고 가정
+
+![image.png](/static/images/이미지197.png)
+
+AI가 제공한 피드백 중 `70.64%가 유용`했다는 의미이다.
+
+이 방식으로 기존 방식과 개선된 방식(CoT, Few-shot Learning 적용)의 정확도를 비교할 수 있다.
+
+- 즉, `AI가 생성한 전체 피드백 중에서, 실제로 도움이 되는 피드백`이 차지하는 비율을 정확도로 계산했다.
+
+<br/>
+
+## "유용한 피드백"의 기준
+
+단순히 일반적인 조언이 아니라 지원자의 이력서 개선에 실질적인 도움을 줄 수 있는 피드백
+
+### 구체적인 내용 포함 여부
+
+- "자기소개를 더 명확하게 작성하세요." → (X 일반적인 조언)
+- "`Spring Boot를 활용한 백엔드 경험`을 강조하면 더 효과적입니다." (O 구체적인 조언)
+
+### 직무와의 연관성
+
+- "기술 스택을 잘 정리하세요." (X 애매한 피드백)
+- "`기술 스택에 Redis와 Docker 활용 경험`을 추가하면 강점이 됩니다." (O 직무와 직접적인 관련이 있음)
+
+### 개선 방향이 명확한지
+
+- "경력 사항을 좀 더 보완하세요." (X 모호한 피드백)
+- "경력에서 `'프로젝트 성과'를 수치로 표현`하면 더 강력한 인상을 줄 수 있습니다." (O 구체적인 개선 방향 제공)
+
+### 예시 포함 여부
+
+- "설명을 추가하면 좋습니다." (X 일반적인 코멘트)
+- "예를 들어, `'API 응답 속도를 40% 개선한 경험'`과 같은 구체적인 성과를 추가하세요." (O 예시가 포함됨)
+
+이러한 기준을 적용하여 유용한 피드백 개수를 측정했고, 이를 통해 AI 분석 정확도를 평가했다.
+
+<br/>
+
+## 유용한 피드백 판별 로직
+
+### AI 피드백 평가 로직
+
+```java
+// 빈 값 또는 너무 짧은 피드백 필터링
+private boolean isInvalidFeedback(String feedback) {
+    return feedback == null || feedback.trim().isEmpty() || feedback.length() < 30;
+}
+
+// 핵심 키워드 포함 여부 확인 (구체적인 조언이 포함되었는지 체크)
+private boolean containsEssentialKeyword(String feedback) {
+    return ESSENTIAL_KEYWORDS.stream().anyMatch(feedback::contains);
+}
+
+// 다양한 직군을 고려한 기술 키워드 포함 여부 확인
+private boolean containsTechnicalKeyword(String feedback) {
+    return TECHNICAL_KEYWORDS.stream().anyMatch(feedback::contains);
+}
+
+// 숫자 포함 여부 확인 (수치 기반 피드백인지 체크)
+private boolean containsNumbers(String feedback) {
+    return feedback.matches(".*\\d+.*");
+}
+
+// 핵심 키워드 목록 (구체적인 조언을 포함하는 표현)
+private static final List<String> ESSENTIAL_KEYWORDS = List.of(
+    "예를 들어", "구체적으로", "추천합니다", "개선할 수 있습니다", "사용하면 좋습니다"
+);
+
+// 다양한 직군을 고려한 기술 키워드 목록
+private static final List<String> TECHNICAL_KEYWORDS = List.of(
+    // 백엔드 관련 키워드
+    "Spring Boot", "Node.js", "REST API", "비동기", "Redis", "SQL", "Docker", "캐싱", "Kafka",
+    
+    // 프론트엔드 관련 키워드
+    "React", "Vue", "Next.js", "Svelte", "CSS-in-JS", "TypeScript", "Redux", "Tailwind",
+
+    // 데이터 분석 / AI 관련 키워드 / 디자인 / UI/UX 관련 키워드 등
+);
+```
+
+### AI 피드백 정확도 계산
+
+```java
+public double calculateFeedbackAccuracy(List<Map<String, String>> feedbacks) {
+    int totalFeedbacks = feedbacks.size() * 5; // 5개 항목 (자기소개, 기술 스택, 경력, 프로젝트, 대외활동)
+    int usefulFeedbacks = countUsefulFeedbacks(feedbacks);
+
+    return (double) usefulFeedbacks / totalFeedbacks * 100;
+}
+```
+
+### 최종 실행 코드
+
+이제 기존 방식(Baseline)과 개선된 방식(CoT + Few-shot) 각각의 정확도를 측정할 수 있다.
+
+```java
+public void analyzeFeedbackAccuracy() {
+    double baselineAccuracy = calculateFeedbackAccuracy(baselineFeedbacks);
+  double cotAccuracy = calculateFeedbackAccuracy(cotFeedbacks);
+
+    log.info("기존 방식 정확도: {}%", String.format("%.f", baselineAccuracy));
+    log.info("CoT + Few-shot 방식 정확도: {}%", String.format("%.f", cotAccuracy));
+    log.info("정확도 향상: {}%", String.format("%.f", improvement));
+}
+```
+
+- AI가 생성한 피드백이 유용한지 자동으로 체크하는 코드를 작성
+- 핵심 키워드, 숫자 포함 여부, 기술적 제안 여부를 기준으로 피드백 유용성 판단
+- Baseline(기존 방식)과 CoT + Few-shot 방식의 정확도 비교 가능
+
+AI 피드백 품질을 객관적으로 평가할 수 있었고, CoT + Few-shot 적용 후 정확도가 37.3% 향상되었음을 수치로 증명할 수 있었다.
+
+<br/>
+
+## AI 피드백 정확도 실험 결과
+
+CoT 및 Few-shot Learning 기법을 적용하면서 AI 피드백의 품질이 어떻게 변화했는지 측정했다.
+
+### 실험 데이터
+
+| 프롬프트 방식 | 유용한 피드백 개수 | 전체 피드백 개수 | 정확도(%) |
+| --- | --- | --- | --- |
+| 기존 방식 (Baseline) | 10개 | 30개 | 33.33% |
+| CoT 적용 후 | 17개 | 30개 | 57.14% |
+| Few-shot Learning 적용 후 | 21개 | 30개 | 70.64% |
+
+```java
+기존 방식 대비 정확도가 37.3% 향상.
+```
+
+즉, `CoT + Few-shot Learning 기법을 적용하면서 AI 피드백이 구체적이고 실용적으로 개선`되었다.
+
+<br/>
+
+## 기존 방식과 개선된 방식 비교
+
+아래는 기존 방식과 CoT + Few-shot 적용 후의 피드백 비교 예시입니다.
+
+자기소개 피드백
+
+| 방식 | 피드백 예시 |
+| --- | --- |
+| 기존 방식 | "자기소개 부분이 너무 길고 산만합니다. 요약해서 작성하세요." |
+| CoT + Few-shot 적용 후 | "이력서에서는 개발자로서의 문제 해결 능력을 강조하고 있습니다. 하지만, 직무와 직접적인 연결성을 명확하게 드러내는 것이 중요합니다. 예를 들어, 'Spring Boot와 Java를 활용하여 데이터 기반 의사 결정을 수행한 경험'을 추가하면 더 효과적입니다." |
+
+### 기술 스택 피드백
+
+| 방식 | 피드백 예시 |
+| --- | --- |
+| 기존 방식 | "기술 스택을 구체적으로 작성하는 것이 좋습니다." |
+| CoT + Few-shot 적용 후 | "기술 스택을 단순 나열하는 것보다, 해당 기술을 어떻게 활용했는지 설명하는 것이 중요합니다. 예를 들어, 'Spring Boot 3.0을 활용하여 RESTful API를 개발하고, Redis 캐싱을 적용하여 응답 속도를 40% 개선한 경험'을 추가하면 더 효과적입니다." |
+
+### 경력 피드백
+
+| 방식 | 피드백 예시 |
+| --- | --- |
+| 기존 방식 | "경력 부분을 좀 더 상세히 작성하세요." |
+| CoT + Few-shot 적용 후 | "경력 사항은 성과 중심으로 서술하는 것이 중요합니다. 예를 들어, '리튬이온 2차 전지 단가 절감 프로젝트를 주도하여, 생산 비용을 20% 절감'과 같이 수치 기반 성과를 추가하면 더욱 효과적입니다." |
+
+<br/>
+
+## 결론
+
+테스트를 통해 AI 피드백도 논리적인 사고 과정이 적용될 때 정확도가 향상된다는 점을 확인할 수 있었다.
+
+기존 방식 vs CoT + Few-shot 적용 후 비교
+
+- 기존 방식 → 피드백이 모호하고 일반적
+- CoT + Few-shot 적용 후 → 피드백이 명확하고 구체적
+
+### 결과적으로
+
+- 분석 정확도 37.3% 향상
+- 구체적인 예시와 논리적 근거를 포함한 피드백 제공 가능
+- AI 피드백이 지원자의 경험과 직무에 맞춰 실질적인 도움을 줄 수 있도록 개선
