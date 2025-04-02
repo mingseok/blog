@@ -30,7 +30,7 @@ summary: 'AWS에서 Tesseract OCR 성능 문제를 개선한 개인적인 정리
 
 `Tesseract OCR`은 `이미지 처리`와 `텍스트 추출`을 위해 연산 집약적인 작업을 수행한다.
 
-이 과정에서 PDF 파일의 모든 페이지를 개별적으로 처리해야 하며, 특히 `PDFRenderer`를 사용해 `고해상도(기본적으로 300 DPI)` 이미지를 렌더링하는 작업은 `CPU 사용량을 급격히 증가`시킨다.
+이 과정에서 PDF 파일의 모든 페이지를 개별적으로 처리해야 하며, 특히 `PDFRenderer`를 사용해 `고해상도(기본적으로 600 DPI)` 이미지를 렌더링하는 작업은 `CPU 사용량을 급격히 증가`시킨다.
 
 결과적으로 `CPU 리소스가 100%`까지 도달하여 다른 작업을 수행할 여유가 사라지고 서버가 응답하지 않는 문제가 발생했다.
 
@@ -60,10 +60,10 @@ summary: 'AWS에서 Tesseract OCR 성능 문제를 개선한 개인적인 정리
 
 ### PDFRenderer DPI 설정 조정
 
-`PDFRenderer`에서 기본적으로 `300 DPI`로 설정된 해상도를 `150 DPI로 낮춰`, 메모리 사용량과 이미지 처리 속도를 개선 했다.
+`PDFRenderer`에서 기본적으로 `600 DPI`로 설정된 해상도를 `300 DPI로 낮춰`, 메모리 사용량과 이미지 처리 속도를 개선 했다.
 
 ```java
-BufferedImage image = renderer.renderImageWithDPI(page, 150, ImageType.GRAY);
+BufferedImage image = renderer.renderImageWithDPI(page, 300, ImageType.GRAY);
 ```
 
 ### 스레드풀 도입
@@ -77,7 +77,7 @@ for (int page = 0; page < document.getNumberOfPages(); page++) {
     int finalPage = page;
     executorService.submit(() -> {
         try {
-            BufferedImage image = renderer.renderImageWithDPI(finalPage, 150, ImageType.GRAY);
+            BufferedImage image = renderer.renderImageWithDPI(finalPage, 300, ImageType.GRAY);
             synchronized (extractedText) {
                 extractedText.append(tesseract.doOCR(image));
             }
@@ -176,7 +176,7 @@ t3.large는 `2개의 vCPU와 8GB의 메모리`를 제공하므로, 이전보다 
   - 그러나, `Tesseract OCR`은 `싱글 스레드`로 동작하기 때문에 `병렬 처리`가 완벽히 활용되지 못했다.
 - `Docker 환경:` Docker Compose를 활용하여 `메모리와 CPU 제한`을 설정하고, 각 컨테이너가 할당된 자원을 초과하지 않도록 했다. 특히, `mem_limit`과 `cpus` 설정을 통해 Docker 컨테이너가 전체 인스턴스의 리소스를 독점하지 않도록 조정했다.
   - 하지만, OCR 작업은 여전히 Docker 컨테이너 내부에서도 `높은 리소스를 소비`하는 문제를 남겼다..
-- `DPI 개선:` PDFRenderer를 통해 생성하는 `이미지`의 DPI를 기존 `300에서 150으로 낮춰` 처리 속도를 높이고 메모리 소비를 줄였다.
+- `DPI 개선:` PDFRenderer를 통해 생성하는 `이미지`의 DPI를 기존 `600에서 300으로 낮춰` 처리 속도를 높이고 메모리 소비를 줄였다.
   - 그러나 OCR의 정확도가 일부 낮아지는 문제가 발생했기 때문에, 이미지 해상도와 성능 간의 적절한 균형을 찾는 데 시간이 소요되었다..
 
 
