@@ -1,0 +1,152 @@
+---
+title: 'CompletableFuture 개인적인 글 정리'
+date: '2025-04-10'
+tags: ['비동기', 'CompletableFuture']
+draft: false
+summary: 'CompletableFuture 개인적인 글 정리'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## CompletableFuture 란?
+
+`CompletableFuture`는 Java의 비동기 프로그래밍을 위한 도구이며, 여러 작업을 비동기(Asynchronous) 및 병렬(Parallel)로 실행할 수 있도록 도와주는 클래스이다.
+
+비동기(Asynchronous)란?
+
+```java
+"하나의 작업이 끝날 때까지 기다리지 않고, 다른 작업을 동시에 진행하는 방식이다."
+```
+
+기존에는 하나의 요청을 처리하고 응답이 올 때까지 쓰레드가 대기(blocking)하는 방식으로 동작했지만, `CompletableFuture`를 사용하면 응답을 기다리는 동안 다른 작업을 수행할 수 있어 성능이 향상된다.
+
+## 기존 문제점 (동기 방식의 한계)
+
+Spring에서 API를 호출할 때 일반적으로 `RestTemplate`을 사용하며, 기본적으로 동기(Blocking) 방식으로 동작한다.
+
+즉, 하나의 요청이 끝날 때까지 다음 요청을 실행할 수 없으며, 쓰레드가 응답을 받을 때까지 대기한다.
+
+### 기존 동기 방식의 문제점
+
+1. 순차 처리 → API 요청이 하나씩 순서대로 실행되어 병렬 처리 불가능
+2. 쓰레드 대기 (Blocking) → API 응답을 기다리는 동안 쓰레드가 다른 작업을 수행할 수 없음
+3. 전체 처리 시간 증가 → 요청이 많아질수록 대기 시간이 길어짐
+
+> 예제에서는 OpenAI API를 호출하는 데 평균 24초가 걸렸으며, 요청이 동기적으로 실행되면서 병목 현상이 발생했다.
+> 
+
+## `CompletableFuture`를 활용한 성능 개선
+
+기존 `RestTemplate`의 동기 방식 문제를 해결하기 위해 `CompletableFuture`를 도입하여 비동기 요청을 실행하였다.
+
+### 개선된 방식 (`CompletableFuture` 적용)
+
+1. 각 섹션별 비동기 작업 생성 → `CompletableFuture.supplyAsync()`를 사용하여 API 요청을 별도의 쓰레드에서 실행
+2. 논블로킹(Non-blocking) 방식 → API 응답을 기다리는 동안 쓰레드가 다른 작업을 처리 가능
+3. 병렬 처리 지원 → 여러 개의 API 요청을 동시에 실행
+4. Thread Pool Executor 활용 → `ForkJoinPool` 또는 `Custom ThreadPool`을 설정하여 병렬 실행을 최적화
+
+> 결과적으로 평균 응답 시간이 24초 → 15초(37% 단축) 되었다.
+> 
+
+## `CompletableFuture` 적용 코드
+
+```java
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class AsyncExample {
+    private static final ExecutorService executor = Executors.newFixedThreadPool(10);
+
+    public CompletableFuture<String> callApiAsync(String section) {
+        return CompletableFuture.supplyAsync(() -> {
+            // API 호출 로직
+            return callOpenAiApi(section);
+        }, executor);
+    }
+
+    public void processResume() {
+        CompletableFuture<String> future1 = callApiAsync("대외활동");
+        CompletableFuture<String> future2 = callApiAsync("경력사항");
+        CompletableFuture<String> future3 = callApiAsync("자기소개서");
+
+        CompletableFuture.allOf(future1, future2, future3).join(); // 모든 요청 완료 대기
+    }
+}
+```
+
+### 코드 설명
+
+- `callApiAsync()` → `CompletableFuture.supplyAsync()`를 사용하여 API 요청을 비동기적으로 실행
+- `ExecutorService`를 활용하여 쓰레드 풀(Thread Pool)에서 실행
+- `CompletableFuture.allOf().join()`을 사용하여 모든 요청이 완료될 때까지 대기
+
+## 실행 결과
+
+위 코드를 실행하면 `processResume()` 메서드가 호출되며, `"대외활동"`, `"경력사항"`, `"자기소개서"` 섹션에 대한 API 요청이 비동기적으로 동시에 실행된다.
+
+### 기존 동기 방식이라면? (RestTemplate 사용)
+
+- `"대외활동"` API 요청 실행 → 응답 대기 `(예: 8초)`
+- `"경력사항"` API 요청 실행 → 응답 대기 `(예: 7초)`
+- `"자기소개서"` API 요청 실행 → 응답 대기 `(예: 9초)`
+- 총 처리 시간: 8초 + 7초 + 9초 = 24초 (순차 처리로 느림)
+
+### `CompletableFuture` 적용 후 (비동기 처리)
+
+- `"대외활동"`, `"경력사항"`, `"자기소개서"` 요청을 동시에 실행
+- 응답이 가장 늦게 오는 API 기준으로 처리 완료 (예: `max(8초, 7초, 9초) = 9초`)
+- 총 처리 시간: 9초 (동시에 실행되어 대기 시간이 줄어듦)
+
+### 콘솔 출력
+
+```java
+대외활동 분석 요청 실행
+경력사항 분석 요청 실행
+자기소개서 분석 요청 실행
+대외활동 분석 완료
+경력사항 분석 완료
+자기소개서 분석 완료
+모든 섹션 분석 완료
+```
+
+기존: 24초 → 개선 후: 9초 (최대 37% 단축 가능)
+
+즉, `CompletableFuture`를 활용하여 API 요청을 병렬 처리하면 응답 속도가 향상되고,
+
+전체 처리 시간이 단축되는 것이다.
+
+## 트레이드오프 및 배운 점
+
+| 항목 | 동기 방식 (Blocking) | 비동기 방식 (Non-blocking) |
+| --- | --- | --- |
+| 성능 | 느림 (순차 실행) | 빠름 (병렬 실행) |
+| 응답 시간 | 높음 (요청이 많아질수록 증가) | 낮음 |
+| 코드 복잡도 | 단순 | 복잡 (콜백, 예외 처리 필요) |
+| 자원 사용량 | 비효율적 (쓰레드 대기 발생) | 효율적 (쓰레드 재사용) |
+| 예외 처리 | 쉬움 | 어려움 (추적 및 관리 필요) |
+| 디버깅 | 쉬움 | 어려움 (비동기 흐름 분석 필요) |
+
+장점
+
+- API 요청을 비동기 처리하여 응답 시간을 단축
+- `Thread Pool`을 활용하여 병렬 요청을 실행할 수 있어 처리 속도가 향상
+- `CompletableFuture`를 통해 비동기 로직을 쉽게 구현할 수 있음
+
+단점
+
+- 기존 동기 방식보다 코드의 복잡도가 증가
+- `Thread Pool` 크기를 적절히 조정하지 않으면 과부하 발생 가능
+- 예외 처리 및 병렬 요청 개수 조절이 필요함
+
+## 결론
+
+![image.png](/static/images/이미지198.png)
+
+`CompletableFuture`를 활용하면 OpenAI API 요청을 비동기적으로 실행할 수 있으며, 기존 동기 방식 대비 성능을 향상시킬 수 있다.
+
+이번 프로젝트에서는 `CompletableFuture`를 도입하여 평균 응답 시간을 24초에서 15초로 37% 단축하였으며, 병렬 요청을 통해 시스템의 처리량을 개선하였다.
