@@ -19,7 +19,7 @@ summary: 'Redis 기반 실시간 캐싱과 지연 동기화로 조회수 시스�
 
 ## 어떻게 문제 상황을 마주하게 되었나?
 
-![image.png](/static/images/이미지220.png)
+![image.png](/static/images/image220.png)
 
 ### 초기 단순한 구현
 
@@ -110,7 +110,7 @@ UPDATE article SET view_count = view_count + 1 WHERE id = 1;
 
 ## 문제를 어떻게 감지했는지?
 
-![image.png](/static/images/이미지221.png)
+![image.png](/static/images/image221.png)
 
 ### 직접 측정해봤다 (JMeter 테스트)
 
@@ -141,7 +141,7 @@ UPDATE article SET view_count = view_count + 1 WHERE id = 1;
 
 ## 해결 과정: 단계별 개선
 
-![image.png](/static/images/이미지222.png)
+![image.png](/static/images/image222.png)
 
 ### 메모리 기반 배치 처리
 
@@ -518,7 +518,7 @@ end
 
 ## 얼마나 개선되었는지?
 
-![image.png](/static/images/이미지223.png)
+![image.png](/static/images/image223.png)
 
 성능 테스트 결과
 
