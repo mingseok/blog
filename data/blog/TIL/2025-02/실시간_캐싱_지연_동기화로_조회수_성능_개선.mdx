@@ -279,6 +279,8 @@ public class ArticleService {
 
 ## Redis 도입과 중복 방지 구현
 
+![image.png](/static/images/image224.png)
+
 가장 고민했던 부분: *중복 조회를 어떻게 방지할 것인가?*
 
 ```java
@@ -392,6 +394,8 @@ public class ArticleViewService {
 <br/>
 
 ## 지연 동기화와 데이터 일관성 보장
+
+![image.png](/static/images/image225.png)
 
 Redis 캐싱은 성공했지만, Redis 데이터를 DB로 동기화하는 안전한 방법이 필요했다.
 
