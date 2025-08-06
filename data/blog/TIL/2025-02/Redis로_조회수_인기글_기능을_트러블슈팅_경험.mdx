@@ -3,7 +3,7 @@ title: 'Redis로 조회수, 인기글 기능을 도입하며 겪은 트러블슈
 date: '2025-07-23'
 tags: ['프로젝트', 'Redis', '조회수', '인기글', '캐싱']
 draft: false
-summary: '조회수 시스템을 Redis 기반으로 리팩토링하며 조회수 동기화 속도 83프로, 인기글 API 응답 속도 42프로 개선한 경험'
+summary: '조회수 시스템을 Redis 기반으로 리팩토링하며 조회수 동기화 속도 83%, 인기글 API 응답 속도 42% 개선한 경험'
 ---
 
 ### Introduction
@@ -27,6 +27,8 @@ summary: '조회수 시스템을 Redis 기반으로 리팩토링하며 조회수
 조회수가 늘어나도 인기글 순위에는 즉각 반영되지 않았고,
 
 두 기능을 연동하거나 확장하는 데에 구조적인 제약이 많았다.
+
+<br/>
 
 ## 문제
 
@@ -56,10 +58,10 @@ view:article:* 와일드카드 패턴으로 조회하면 Redis 내부에서도 
 잘못 생각했던 것.
 
 > “어차피 중복 체크도 다 끝났고, 조회수도 이미 증가한 애들이니까,
-> 
+>
 
 > 굳이 하나하나 따로 관리할 필요 없이 view:article:*로 전체 조회해서 DB에 반영해버리면 되지 않나?”
-> 
+>
 
 하지만 실제 운영 환경에서 키 수가 많아지자,
 
@@ -86,10 +88,10 @@ ZREVRANGE article:top:list 0 4
 1. 각 게시글의 조회수 조회 → Redis 요청 (5회)
 
 ```java
-GET article:view:1  
-GET article:view:2  
-GET article:view:3  
-GET article:view:4  
+GET article:view:1
+GET article:view:2
+GET article:view:3
+GET article:view:4
 GET article:view:5
 ```
 
@@ -121,6 +123,8 @@ private static final String ARTICLE_MEMBER_VIEW_PATTERN = "viewed:article:%s:mem
 
 버그가 발생해도 원인 추적이 어려웠고, 새로운 기능을 추가하거나 수정하려 할 때도 불편함이 생겼다.
 
+<br/>
+
 ## 원인
 
 ### Redis 와일드카드 패턴에 대한 오해
@@ -150,6 +154,8 @@ ZSet으로 인기글 ID를 가져오고, 각 게시글의 조회수를 Redis에�
 
 결과적으로, 단일 책임 원칙(SRP)이 지켜지지 않아 응집도가 떨어졌던 것이다.
 
+<br/>
+
 ## 해결
 
 ### 동기화 대상 키 관리를 Set으로 분리하여 KEYS 명령 제거
@@ -157,9 +163,9 @@ ZSet으로 인기글 ID를 가져오고, 각 게시글의 조회수를 Redis에�
 초기에는 조회수 증가 시점에 Redis에 다음과 같은 키가 생성되고 있었다.
 
 ```java
-view:article:1  
-view:article:2  
-view:article:3  
+view:article:1
+view:article:2
+view:article:3
 ...
 ```
 
@@ -295,6 +301,8 @@ public class RedisKey {
 - ArticleRankingService: 인기글 ID 캐싱, 랭킹 리스트 조회 등 랭킹 중심 로직 전담
 
 → 각 서비스는 자신이 사용하는 Redis 키만 접근하고, 서로의 책임 범위를 침범하지 않도록 구조를 분리했다.
+
+<br/>
 
 ## 결과
 
