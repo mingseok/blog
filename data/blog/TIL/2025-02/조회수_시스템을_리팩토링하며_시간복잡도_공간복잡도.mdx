@@ -20,7 +20,7 @@ summary: '조회수 시스템을 Redis 기반으로 리팩토링하여 메모리
 
 이 부분을 성능 측면으로 개선하기 위해, 조회수 데이터를 RDB가 아닌 Redis에 우선 저장하고 일정 주기마다 RDB로 동기화하는 구조를 도입했다.
 
-구현 초기에는 Redis에 view:article:{id} 형태의 키로 조회수를 저장하고, 중복 조회 방지를 위해 viewed:members:{articleId} 형태의 Set 키에 사용자 ID를 함께 기록했다.
+구현 초기에는 Redis에 `view:article:{id}` 형태의 키로 조회수를 저장하고, 중복 조회 방지를 위해 `viewed:members:{articleId}` 형태의 Set 키에 사용자 ID를 함께 기록했다.
 
 TTL을 활용하여 일정 시간이 지나면 Redis 키가 자동으로 제거되도록 구성함으로써, 메모리 사용량을 조절할 수 있다고 판단했다.
 
@@ -45,9 +45,9 @@ TTL을 활용하여 일정 시간이 지나면 Redis 키가 자동으로 제거�
 
 ## 원인
 
-조회수 시스템은 조회 요청이 들어올 때마다 Redis에 view:article:{id} 키의 값을 증가시키는 방식으로 구성되었다.
+조회수 시스템은 조회 요청이 들어올 때마다 Redis에 `view:article:{id}` 키의 값을 증가시키는 방식으로 구성되었다.
 
-동시에, 중복 조회를 방지하기 위해 viewed:members:{articleId} 키에 사용자 ID를 Set으로 저장했다.
+동시에, 중복 조회를 방지하기 위해 `viewed:members:{articleId}` 키에 사용자 ID를 Set으로 저장했다.
 
 키는 Redis의 Set 자료구조를 사용해 구현됐고, 동일 사용자가 중복으로 조회할 경우 Set의 중복 불가 특성을 활용해 필터링할 수 있었다.
 
@@ -59,7 +59,7 @@ TTL을 활용하여 일정 시간이 지나면 Redis 키가 자동으로 제거�
 
 Redis에는 게시글 ID 단위로 Set 키가 생성되었고, 해당 Set에는 조회한 사용자 ID가 누적되었다.
 
-예를 들어, viewed:members:1001 키는 1001번 게시글을 조회한 모든 사용자의 ID를 저장한다.
+예를 들어, `viewed:members:1001` 키는 1001번 게시글을 조회한 모든 사용자의 ID를 저장한다.
 
 - 게시글 수가 1만 개일 경우, Set 키도 1만 개 생성
 - 각 게시글에 하루 평균 1천 명이 접근한다면 → 하루에만 총 1천만 개의 사용자 ID가 Redis Set에 삽입됨
@@ -98,7 +98,7 @@ Redis에는 게시글 ID 단위로 Set 키가 생성되었고, 해당 Set에는 
 
 ### 중복 조회 방지 방식을 간소화하면서 Redis 키 수 줄이기
 
-기존에는 게시글마다 viewed:members:{articleId} 형태의 Set 키를 만들고, 사용자의 ID를 삽입해 중복을 방지했지만, 이제는 이 구조를 유지하면서도 TTL을 명확히 관리하고, 필요한 데이터만 남기는 방향으로 변경했다.
+기존에는 게시글마다 `viewed:members:{articleId}` 형태의 Set 키를 만들고, 사용자의 ID를 삽입해 중복을 방지했지만, 이제는 이 구조를 유지하면서도 TTL을 명확히 관리하고, 필요한 데이터만 남기는 방향으로 변경했다.
 
 ```java
 String key = RedisKey.getViewedMembersKey(articleId);
@@ -116,18 +116,18 @@ redisTemplate.expire(key, RedisConstants.DUPLICATE_PREVENTION_TTL, TimeUnit.SECO
 
 ### 집계용 Set 관리
 
-Set 기반 사용자 ID 누적 구조와 별개로, 순수한 조회수는 view:article:{id} 키에만 저장된다.
+Set 기반 사용자 ID 누적 구조와 별개로, 순수한 조회수는 `view:article:{id}` 키에만 저장된다.
 
 ```java
 redisTemplate.opsForValue().increment(RedisKey.getArticleViewKey(articleId));
 redisTemplate.opsForSet().add(RedisKey.articlesSaveDbKey(), articleId.toString());
 ```
 
-그리고 articles:save:db 키에 이 게시글 ID를 추가함으로써, DB에 반영할 대상만 추적하도록 분리했다.
+그리고 `articles:save:db` 키에 이 게시글 ID를 추가함으로써, DB에 반영할 대상만 추적하도록 분리했다.
 
 - 무조건 모든 게시글의 조회수를 동기화하지 않고, 변경이 있었던 게시글만 추적
-- view:article:{id} → 단일 Redis String이므로 공간 복잡도가 낮음
-- articles:save:db → Redis Set이지만, 조회수 증가한 게시글만 남김
+- `view:article:{id}` → 단일 Redis String이므로 공간 복잡도가 낮음
+- `articles:save:db` → Redis Set이지만, 조회수 증가한 게시글만 남김
 
 ### 조회수 동기화는 별도 스케줄러에서 일괄 처리
 
@@ -140,7 +140,7 @@ public void syncViewCounts() {
 }
 ```
 
-1. articles:save:db Set에서 업데이트 대상 게시글 ID 목록을 가져옴
+1. `articles:save:db` Set에서 업데이트 대상 게시글 ID 목록을 가져옴
 2. 각 게시글에 대해 Redis에서 조회수를 조회
 3. 조회수가 존재하는 경우에만 DB에 반영 (bulkAddViewCount)
 4. Redis의 조회수 키, 저장 대상 키를 삭제
@@ -212,7 +212,7 @@ public void updateRedisTopArticles() {
 
 트래픽이 증가할수록 불필요한 DB 부하로 이어졌고, 실제 변경이 없는 게시글에도 UPDATE 쿼리가 실행되는 문제가 있었다.
 
-리팩토링 이후에는 Redis Set(articles:save:db)을 활용해 조회수 변경이 감지된 게시글(K)만 추적하고,
+리팩토링 이후에는 Redis Set(`articles:save:db`)을 활용해 조회수 변경이 감지된 게시글(K)만 추적하고,
 
 이들에 대해서만 일괄 처리(Bulk Update) 방식으로 DB에 저장함으로써 I/O 부하를 크게 줄일 수 있었다.
 
