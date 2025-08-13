@@ -10,262 +10,293 @@ summary: '조회수 시스템을 Redis 기반으로 리팩토링하여 메모리
 
 <TOCInline toc={props.toc} exclude="Introduction" />
 
-앞서 작성한 `Redis로 조회수, 인기글 기능을 도입하며 겪은 트러블슈팅 경험` 에서는 API 응답 지연, Redis 과다 호출, 정렬 비용 등의 실시간 처리 병목을 해결하는 데 초점을 맞췄다면,
 
-이번 글에서는 근본적으로 “시간/공간 복잡도 관점에서의 구조 개선을 중심으로 장기적으로 발생할 수 있는 성능 저하와 비용 증가 방지하기 위한 구조적 리팩토링을 작성합니다.
+앞서 작성한 `Redis를 활용한 조회수, 인기글 구현과 성능 개선 경험` 에서는 Redis 도입 과정과 KEYS 명령어 문제, 반복적 Redis 호출 등의 `즉시 해결이 필요한 성능 병목`을 다뤘다면,
+
+이번 글에서는 한 단계 더 나아가 `시간/공간 복잡도 관점에서의 근본적인 구조 개선`을 중심으로, 장기적으로 발생할 수 있는 확장성 문제와 메모리 비용 증가를 방지하기 위한 `구조적 리팩토링 경험`을 작성합니다.
 
 <br/>
 
 ## 상황
 
-서비스에서는 게시글 상세 페이지를 조회할 때마다 즉시 조회수를 증가시키는 기능을 제공하고 있었다.
+Redis 기반 조회수 시스템을 성공적으로 도입한 후, `단기적인 성능 문제`들은 해결되었지만 `장기적인 운영 관점`에서 보면 새로운 문제들이 드러나기 시작했다.
 
-이 부분을 성능 측면으로 개선하기 위해, 조회수 데이터를 RDB가 아닌 Redis에 우선 저장하고 일정 주기마다 RDB로 동기화하는 구조를 도입했다.
+`메모리 사용량의 지속적인 증가와 DB 동기화 범위` 문제가 눈에 보이기 시작한것이다.
 
-구현 초기에는 Redis에 `view:article:{id}` 형태의 키로 조회수를 저장하고, 중복 조회 방지를 위해 `viewed:members:{articleId}` 형태의 Set 키에 사용자 ID를 함께 기록했다.
+- Redis에 `article:view:{id}` 형태로 조회수 저장
+- 중복 조회 방지를 위해 `article:viewed:members:{articleId}` Set에 사용자 ID 누적
+- TTL 기반으로 일정 시간 후 자동 삭제 예정
+- 주기적으로 모든 조회수 데이터를 DB로 동기화
 
-TTL을 활용하여 일정 시간이 지나면 Redis 키가 자동으로 제거되도록 구성함으로써, 메모리 사용량을 조절할 수 있다고 판단했다.
+이 구조는 기능적으로는 문제없이 작동했지만, `트래픽 증가에 따른 확장성 측면`에서 우려사항들이 발견되었다.
 
-그리고 인기글 기능은 RDB에 저장된 누적 조회수 기준으로 정렬되도록 구현했으며, Redis는 일시적인 캐시와 중복 방지를 위한 도구로만 사용하는 구조였다.
-
-<br/>
-
-### 이 방식은 트래픽이 적을 때는 문제 없이 작동했다.
-
-하지만 서비스 배포하고 부하 테스트를 진행해보니, 수천 건 이상이라면 구조적인 문제가 드러나기 시작했다.
-
-- Redis에 생성되는 키의 수가 `게시글 수 × 사용자 수로 폭증`했고,
-- TTL만으로는 Redis 메모리 사용량을 안정적으로 제어할 수 없는 문제도 발생했다.
-
-무엇보다 시간이 지날수록 Redis의 메모리 사용량이 증가했고,
-
-캐시 삭제 주기를 통제할 수 없는 구조는 `공간 복잡도`를 예측 불가능하게 만들었다.
-
-인기글 순위는 실시간 사용자 경험을 반영하지 못하고 정합성도 유지되지 않는 상태가 되었다.
-
-그리하여 조회수 시스템을 `시간 / 공간 복잡도 관점`에서 리팩토링할 필요하다고 생각했다.
 
 <br/>
 
-## 원인
+## 문제 분석: 복잡도 관점에서의 구조적 한계
 
-조회수 시스템은 조회 요청이 들어올 때마다 Redis에 `view:article:{id}` 키의 값을 증가시키는 방식으로 구성되었다.
+### Redis 메모리 사용량의 예측 불가능한 증가
 
-동시에, 중복 조회를 방지하기 위해 `viewed:members:{articleId}` 키에 사용자 ID를 Set으로 저장했다.
+기존 구조에서는 게시글마다 `article:viewed:members:{articleId}` 형태의 Set 키가 생성되어, 해당 게시글을 조회한 모든 사용자 ID가 누적되었다.
 
-키는 Redis의 Set 자료구조를 사용해 구현됐고, 동일 사용자가 중복으로 조회할 경우 Set의 중복 불가 특성을 활용해 필터링할 수 있었다.
+#### 공간 복잡도 분석
 
-이 구조는 단순하게 구현할 수 있었고, 초기 트래픽에서는 문제를 일으키지 않았다.
+```
+Redis 키 수 = 게시글 수 × 1 (각 게시글마다 Set 키 1개)
+Set 내 데이터 = 게시글별 누적 조회자 수
+총 메모리 = O(게시글 수 + 총 조회 건수)
+```
 
-하지만 실제 운영 환경에서 밑에 내용들의 문제 조건이 겹치면서, 구조적으로 위험한 설계라는 점이라고 생각이 들었다.
+#### 실제 메모리 증가 패턴
 
-<br/>
+![image.png](/static/images/image247.png)
 
-### Redis에 저장되는 키 수가 기하급수적으로 증가함
+- 10,000개 게시글 × 평균 100명 조회 = `1,000,000개 사용자 ID 저장`
+- 각 ID당 평균 8-12 바이트 + Set 오버헤드
+- 인기 게시글의 경우 `TTL` 지속 갱신으로 `사실상 영구 보존 느낌이다.`
 
-Redis에는 게시글 ID 단위로 Set 키가 생성되었고, 해당 Set에는 조회한 사용자 ID가 누적되었다.
 
-예를 들어, `viewed:members:1001` 키는 1001번 게시글을 조회한 모든 사용자의 ID를 저장한다.
+#### 부하 테스트를 통해 메모리 증가 시뮬레이션 결과.
 
-- `게시글 수가 1만 개일 경우`, Set 키도 1만 개 생성
-- 각 게시글에 하루 평균 1천 명이 접근한다면 → `하루에만 총 1천만 개의 사용자 ID가 Redis Set에 삽입됨`
+| 기간 | 게시글 수 | 평균 조회자 / 게시글 | 예상 메모리 사용량 | 실제 측정값 |
+| --- | --- | --- | --- | --- |
+| 1일차 | 1000개 | 50명 | ~ 5MB | 4.2MB |
+| 1주차 | 1000개 | 150명 | ~ 15MB | 18.7MB |
+| 1개월 | 1000개 | 300명 | ~ 30MB | 45.3MB |
 
-게다가 TTL로 자동 만료를 설정했지만, TTL은 고정된 시간이 지나야 만료되며,
-
-사용자의 접근 패턴에 따라 키의 수명은 달라지고, 결국 시스템이 TTL 만료 시점을 통제하기 어렵다.
-
-<br/>
-
-### TTL 기반 삭제 전략의 한계
-
-각 Set 키에는 TTL을 적용했지만 일부 게시글은 자주 조회되어 TTL이 계속 갱신되었고, 일부는 조회가 삭제되었다.
-
-- 자주 조회되는 게시글의 Set은 TTL 갱신으로 Redis에 계속 남아 있게 됨
-- 드물게 조회되는 게시글은 TTL이 만료되며 자연스럽게 삭제됨
-
-즉, 자주 사용되는 키는 사실상 삭제되지 않는 고정 메모리로 남게 되었고, `TTL 기반 구조가 예측 불가능한 공간 복잡도를 가지게 만들었다.`
-
-시간이 지날수록 `Redis 메모리 사용량이 줄어들지 않고, 오히려 누적되는 문제가 생겼다.`
 
 <br/>
 
-### 인기글 정렬 기준의 일관성 부족
+### TTL 기반 메모리 관리의 한계
 
-조회수는 Redis에 먼저 기록되고, 주기적으로 DB로 동기화되는 구조였다.
+![image.png](/static/images/image248.png)
 
-그런데 인기글 기능은 DB의 조회수를 기준으로 정렬하고 있었기 때문에 문제가 발생했다.
+`TTL`을 통한 자동 삭제 전략은 이론적으로는 합리적이었지만, 실제 운영에서는 `예측 불가능한 동작`을 보였다.
 
-- 사용자가 실제로 많이 본 게시글이 `인기글에 반영되지 않음`
-- 반대로, 예전에 조회수가 많았지만 지금은 인기가 없는 게시글이 상단에 노출됨
-
-즉, 인기글 기능이 실제 사용자 경험과 정렬 기준 사이에 문제가 생겼다.
-
-이 불일치는 `Redis와 DB 간 동기화 간격이 클수록 문제가 커졌고`, 실시간성과 정확성 사이의 문제로 이어졌다.
-
-<br/>
-
-## 해결
-
-### 중복 조회 방지 방식을 간소화하면서 Redis 키 수 줄이기
-
-기존에는 게시글마다 `viewed:members:{articleId}` 형태의 Set 키를 만들고, 사용자의 ID를 삽입해 중복을 방지했지만, 이제는 이 구조를 유지하면서도 TTL을 명확히 관리하고, 필요한 데이터만 남기는 방향으로 변경했다.
+#### TTL 갱신 문제
 
 ```java
+// 사용자가 게시글 조회할 때마다 실행
 String key = RedisKey.getViewedMembersKey(articleId);
-Long added = redisTemplate.opsForSet().add(key, String.valueOf(memberId));
-
-if (added != RedisConstants.REDIS_SET_ADD_SUCCESS) {
-    return;
-}
-redisTemplate.expire(key, RedisConstants.DUPLICATE_PREVENTION_TTL, TimeUnit.SECONDS);
+redisTemplate.opsForSet().add(key, String.valueOf(memberId));
+redisTemplate.expire(key, DUPLICATE_PREVENTION_TTL, TimeUnit.SECONDS); // TTL 갱신
 ```
 
-- 중복일 경우 바로 return하여 Redis 공간 낭비를 줄였고,
-- TTL은 일정 시간만 유지되며, 그 이후에는 중복 체크를 하지 않도록 설계해 키 수명을 제한했다.
-- TTL 갱신이 반복되는 키를 억제함으로써, 자주 조회되는 게시글이 Redis에서 무한히 살아남는 문제를 해결했다.
+#### 문제점
+
+- 인기 게시글: 지속적인 접근 → `TTL` 계속 갱신 → `영구 보존`
+- 비인기 게시글: 접근 없음 → `TTL` 만료 → 자동 삭제
+- 결과: `메모리 사용량을 시스템이 통제할 수 없음`
 
 <br/>
 
-### 집계용 Set 관리
+### DB 동기화의 비효율적인 범위
 
-Set 기반 사용자 ID 누적 구조와 별개로, 순수한 조회수는 `view:article:{id}` 키에만 저장된다.
+조회수 동기화 시 전체 게시글을 대상으로 하는 `O(N) 처리`가 문제였다.
 
-```java
-redisTemplate.opsForValue().increment(RedisKey.getArticleViewKey(articleId));
-redisTemplate.opsForSet().add(RedisKey.articlesSaveDbKey(), articleId.toString());
-```
-
-그리고 `articles:save:db` 키에 이 게시글 ID를 추가함으로써, DB에 반영할 대상만 추적하도록 분리했다.
-
-- 무조건 모든 게시글의 조회수를 동기화하지 않고, 변경이 있었던 게시글만 추적
-- `view:article:{id}` → 단일 Redis String이므로 공간 복잡도가 낮음
-- `articles:save:db` → Redis Set이지만, 조회수 증가한 게시글만 남김
-
-<br/>
-
-### 조회수 동기화는 별도 스케줄러에서 일괄 처리
-
-조회수가 DB로 동기화되는 시점은 @Scheduled를 통해 주기적으로 호출된다.
+#### 기존 동기화 로직
 
 ```java
-@Scheduled(fixedRate = RedisConstants.SYNC_INTERVAL_MILLIS)
-public void syncViewCounts() {
-    articleViewService.bulkUpdateViewCounts();
-}
-```
+// 전체 게시글을 스캔하여 조회수 변경 여부 확인
+@Scheduled(fixedRate = SYNC_INTERVAL)
+public void syncAllViewCounts() {
+List<Article> allArticles = articleRepository.findAll(); // O(N) 전체 조회
 
-1. `articles:save:db` Set에서 업데이트 대상 게시글 ID 목록을 가져옴
-2. 각 게시글에 대해 Redis에서 조회수를 조회
-3. 조회수가 존재하는 경우에만 DB에 반영 (bulkAddViewCount)
-4. Redis의 조회수 키, 저장 대상 키를 삭제
+    for (Article article : allArticles) {
+        String redisValue = redisTemplate.opsForValue()
+            .get(RedisKey.getArticleViewKey(article.getId()));
 
-```java
-redisViewCounts.forEach(articleRepository::bulkAddViewCount);
-articleRepository.flush();
-
-for (Long articleId : redisViewCounts.keySet()) {
-    redisTemplate.delete(RedisKey.getArticleViewKey(articleId));
-    redisTemplate.opsForSet().remove(RedisKey.articlesSaveDbKey(), articleId.toString());
-}
-```
-
-- DB 반영 대상 최소화: 변경이 없던 게시글은 동기화하지 않음
-- 정합성 확보: Redis → DB 반영 후, Redis 키는 제거
-- 공간 복잡도 제어: TTL 만료를 기다리지 않고, 불필요한 Redis 키는 제거
-
-<br/>
-
-### 인기글 정렬도 Redis 기준이 아닌 RDB 기준으로 통일
-
-정렬 기준이 Redis와 DB로 분리되어 있던 구조에서 → DB 기준으로 인기글을 계산하고 Redis에는 정렬된 결과만 저장한다.
-
-```java
-public void updateRedisTopArticles() {
-    List<Article> topArticles = articleRepository.findTopByViews(...);
-
-    redisTemplate.delete(key);
-    for (Article article : topArticles) {
-        redisTemplate.opsForList().rightPush(key, article.getIdAsString());
+        if (redisValue != null) {
+            // DB 업데이트 수행
+        }
     }
 }
 ```
 
-- Redis ZSet 대신 Redis List 사용으로 정렬된 ID만 저장
-- Redis는 정렬 데이터를 빠르게 조회하기 위한 캐시일 뿐, 기준은 오직 DB에 둠
-- 인기글은 DB 기준 → Redis → 클라이언트 응답까지 일관되게 연결됨
+#### 시간 복잡도 문제
+
+- 전체 게시글 수 `N`에 대해 항상 `O(N) 처리`
+- 실제 조회수 변경이 있는 게시글은 전체의 `10-30% 수준`
+- `70-90%의 불필요한 처리가 반복됨`
+
+
+## 해결: 복잡도 중심의 구조 개선
+
+
+### 1. 중복 방지 개선으로 메모리 사용량 감소
+
+TTL 갱신 문제를 해결하기 위해 일회성 TTL 설정 전략으로 변경했다.
+
+```java
+public void increaseViewCount(Long articleId, Long memberId) {
+String key = RedisKey.getViewedMembersKey(articleId);
+Long added = redisTemplate.opsForSet().add(key, String.valueOf(memberId));
+
+    // 중복 조회인 경우 즉시 종료 (TTL 갱신 방지)
+    if (added != RedisConstants.REDIS_SET_ADD_SUCCESS) {
+        return;
+    }
+
+    // TTL은 최초 1회만 설정
+    redisTemplate.expire(key, RedisConstants.DUPLICATE_PREVENTION_TTL, TimeUnit.SECONDS);
+
+    redisTemplate.opsForValue().increment(RedisKey.getArticleViewKey(articleId));
+    redisTemplate.opsForSet().add(RedisKey.articlesSaveDbKey(), articleId.toString());
+}
+```
+
+#### 개선 효과
+
+- `TTL` 갱신 방지 → 인기 게시글도 5분 후 자동 삭제
+- 메모리 사용량 상한선 설정 가능
+- 공간 복잡도: `O(N×M) → O(K)` (K: 5분 내 활성 사용자 수)
 
 <br/>
 
-## 결과
+### 2. 동기화 범위 개선으로 시간 복잡도 개선
 
-### Redis 공간 복잡도 개선 O(N×M) → O(K)
+변경이 발생한 게시글만 추적하는 방식으로 개선했다.
 
-![image.png](/static/images/image239.png)
+```java
+// 조회수 증가 시 동기화 대상으로 등록
+redisTemplate.opsForSet().add(RedisKey.articlesSaveDbKey(), articleId.toString());
 
-기존 구조에서는 게시글 수 × 사용자 수만큼의 Set 키가 Redis에 생성되었고, TTL이 반복 갱신되며 메모리 누수가 발생했다.
+// 동기화 시 변경된 게시글만 처리
+@Transactional
+public void bulkUpdateViewCounts() {
+Set<String> articleIds = redisTemplate.opsForSet().members(RedisKey.articlesSaveDbKey());
+if (articleIds == null) return;
 
-리팩토링 이후에는 중복 방지 키의 TTL을 제어하고, 조회수 변경이 있는 게시글만을 추적 대상으로 분리함으로써 Redis 키 수를 게시글 수 수준으로 고정시켰다.
+    List<ViewCountUpdateDto> updateList = new ArrayList<>();
 
-- `TTL이 반복 갱신되는 문제 제거` → 자주 조회되는 게시글도 지속적으로 메모리 차지하지 않음
-- `중복 체크는 일정 시간 유지` → Set 키 수명 제한
-- 실제 Redis 메모리 사용량도 `4.6MB 수준으로 개선`
+    // 변경된 게시글에 대해서만 처리 O(K)
+    for (String articleIdStr : articleIds) {
+        Long articleId = Long.parseLong(articleIdStr);
+        String viewCountValue = redisTemplate.opsForValue()
+                .get(RedisKey.getArticleViewKey(articleId));
 
-| 항목 | 개선 전 | 개선 후 |
-| --- | --- | --- |
-| 게시글 수 | 1,000개 | 1,000개 |
-| 사용자 수 | 1,000명 | 1,000명 |
-| Redis 키 수 | 최대 100,000개 수준 | 1,000개 수준 |
-| Redis 메모리 사용량 | 약 20~30MB 이상
-(TTL 반복 갱신 시 증가) | 4.6MB |
-| TTL 부하 | 지속적 TTL 갱신
-(트래픽 증가 시 Redis 부하) | 최초 1회 설정 후 유지 |
+        if (viewCountValue != null) {
+            updateList.add(new ViewCountUpdateDto(articleId, Long.parseLong(viewCountValue)));
+        }
+    }
 
-<br/>
+    batchUpdater.batchUpdate(updateList); // 배치 처리
+    clearCache(articleIds); // 처리 완료 후 캐시 정리
+}
+```
 
-### DB 동기화 범위 시간 복잡도 개선 O(N) → O(K)
+#### 시간 복잡도 개선
 
-![image.png](/static/images/image240.png)
+- 기존: `O(N)` - 전체 게시글 스캔
+- 개선: `O(K)` - 변경된 게시글만 처리 (일반적으로 K << N)
 
-기존 구조에서는 전체 `게시글(N)을 주기적으로 스캔`하면서, 조회수 변경 여부와 관계없이 모든 게시글에 대해 쓰기 연산을 수행했다.
-
-`트래픽이 증가할수록 불필요한 DB 부하`로 이어졌고, 실제 변경이 없는 게시글에도 `UPDATE 쿼리가 실행되는 문제가 있었다.`
-
-리팩토링 이후에는 Redis Set(`articles:save:db`)을 활용해 조회수 변경이 감지된 게시글(K)만 추적하고,
-
-이들에 대해서만 `일괄 처리(Bulk Update) 방식`으로 DB에 저장함으로써 I/O 부하를 줄일 수 있었다.
-
-- O(N) 전체 순회 → O(K) 변경된 게시글만 반영 (K ≪ N)
-- `Redis 조회 → DB 저장 → Redis 키 삭제 → 일괄 처리로 시간 단축`
-
-| 항목 | 개선 전 | 개선 후 |
-| --- | --- | --- |
-| 게시글 수 (N) | 1,000개 | 1,000개 |
-| 변경 감지 게시글 수 (K) | 관계없이 전체 스캔 | 평균 250개 (25% 수준) |
-| DB 쓰기 요청 수 | 1,000건 / 주기 | 250건 / 주기 |
-| 예상 I/O 감소율 | - | 약 75% 감소 |
-| 처리 방식 | 게시글별 개별 UPDATE | Bulk UPDATE + Redis 키 일괄 삭제 |
-| 성능 테스트 결과 | 1,000개 처리 시 수백 ms 소요 | 250개 처리 시 약 0.2초 내외 |
 
 <br/>
 
-### 인기글 정렬 O(logN) → O(1)
+### 배치 업데이트로 DB 부하 개선
 
-![image.png](/static/images/image241.png)
+개별 UPDATE를 배치 처리로 변경하여 DB 호출 횟수를 대폭 감소시켰다.
 
-기존 구조에서는 Redis Sorted Set(ZSet)을 활용해 인기글을 실시간으로 정렬했으며, 조회수 증가마다 ZINCRBY 연산을 수행하며 성능 병목 가능성이 존재했다.
+```java
+@Component
+public class ArticleViewBatchUpdater {
 
-리팩토링 이후에는 인기글 정렬을 `RDB에서 주기적으로 계산`하고, 그 결과만 `Redis List로 저장`하여, `정렬 로직을 DB에 위임하고 Redis는 단순 캐시 역할만 수행`하도록 변경했다.
+    private static final int BATCH_SIZE = 500;
 
-- Redis는 정렬된 인기글 `ID 리스트만 보관`
-- 클라이언트는 API 요청 시 `O(1)로 인기글 응답 가능`
-- `정렬 기준(RDB 기준) 일원화로` 정합성 향상 및 중복 연산 제거
-- 실시간 정렬 로직 제거 → Redis ZSet 제거, `Redis 연산량 감소`
+    public void batchUpdate(List<ViewCountUpdateDto> updateList) {
+        String sql = """
+            UPDATE article
+            SET view_count = view_count + :viewCount
+            WHERE id = :articleId
+            """;
 
-| 항목 | 개선 전 | 개선 후 |
-| --- | --- | --- |
-| 정렬 방식 | Redis ZSet 기반 정렬  | RDB 정렬 결과를 Redis List로 캐싱 |
-| 정렬 비용 | O(logN) + 트래픽 증가 시 연산량 증가 | O(1) – 정렬 없이 조회만 수행 |
-| Redis 연산량 | 다수의 ZINCRBY, ZREVRANGE | 단순 LRANGE |
-| 데이터 일관성 | Redis와 RDB 간 기준 혼재 | RDB 기준으로 정렬 일원화 |
-| 인기글 데이터 크기 | 게시글 수에 따라 증가 (N개) | Top 5 게시글 ID만 유지 |
+        // 500개씩 배치 처리
+        for (int i = 0; i < updateList.size(); i += BATCH_SIZE) {
+            List<ViewCountUpdateDto> batch = updateList.subList(
+                i, Math.min(i + BATCH_SIZE, updateList.size())
+            );
+
+            namedJdbcTemplate.batchUpdate(sql, createParameterSources(batch));
+        }
+    }
+}
+```
+
+DB 호출 개선 1,000건 처리 시 1,000번 → 2번 호출로 감소했다. 배치 사이즈로 메모리 사용량도 감소 시켰다.
+
+<br/>
+
+### 인기글 정렬 O(log N) -> O(1)
+
+![image.png](/static/images/image249.png)
+
+Redis ZSet 실시간 정렬에서 DB 기준 주기적 캐싱으로 변경했다.
+
+```java
+@Scheduled(fixedRate = RedisConstants.RANKING_REFRESH_INTERVAL)
+public void updateRedisTopArticles() {
+// DB에서 정확한 조회수 기준으로 정렬
+List<Article> topArticles = articleRepository.findTopByViews(
+PageRequest.of(0, RedisConstants.TOP_LIMIT));
+
+    String key = RedisKey.getTopArticleListKey();
+    redisTemplate.delete(key);
+
+    // 정렬된 결과만 Redis List에 저장
+    for (Article article : topArticles) {
+        redisTemplate.opsForList().rightPush(key, article.getIdAsString());
+    }
+}
+
+// API 조회는 O(1)
+public List<ArticleListResponse> getTopRankedArticles() {
+List<Long> topIds = getTopArticleIds(); // O(1) Redis List 조회
+// ... DB에서 게시글 정보 조회
+}
+```
+#### 정렬 복잡도 개선
+
+- 기존: `O(log N)` - 매 조회마다 ZSet 정렬
+- 개선: `O(1`) - 사전 정렬된 `List 조회`
+
+<br/>
+
+## 결과: 시간/공간 복잡도 개선을 통한 성능 개선
+
+### 메모리 사용량 안정화 (공간 복잡도 개선)
+
+측정 환경: 1000개 게시글, 일일 평균 300명 조회 기준
+
+| 지표 | 개선 전 | 개선 후 | 개선율 |
+| --- | --- | --- | --- |
+| Redis 키 증가 패턴 | 시간에 따라 지속 증가 | 5분 주기로 안정화
+(5분은 예시) | 증가폭 제한 |
+| 메모리 사용량 | ~18MB | ~6MB | 약 3배 감소 |
+| TTL 관리 | 인기글은 계속 갱신 | 모든 키 5분 후 삭제
+(5분은 예시) | 예측 가능 |
+
+
+---
+
+### DB 동기화 성능 개선 (시간 복잡도 개선)
+
+측정 환경: 1,000개 게시글 중 500개에서 조회수 변경
+
+| 처리 대상 | 개선 전 O(N) | 개선 후 O(K) | 개선 효과 |
+| --- | --- | --- | --- |
+| 스캔 대상 | 1000개 전체 스캔 | 500개만 처리 | 처리량 2배 감소 |
+| 처리 시간 | ~3초 | ~1.2초 | 약 3배 단축 |
+| DB 호출 수 | 500회 (개별 UPDATE) | 1회 (배치 업데이트, 500개씩) | 대폭 감소 |
+
+
+### 인기글 정렬 성능 개선
+
+| 지표 | 개선 전 | 개선 후 | 개선 효과 |
+| --- | --- | --- | --- |
+| 정렬 방식 | 매번 실시간 계산 | 주기적 캐싱 | 계산 부하 제거 |
+| Redis 호출 수 | 6회 (ID조회 + 각 조회수) | 1회 (ID 목록만) | 호출 횟수 감소 |
+| 데이터 일관성 | Redis / DB 혼재 | DB 기준 일원화 | 정합성 개선 |
+
+
+이번 리팩토링을 통해 조회수 시스템의 시간 복잡도와 공간 복잡도를 개선할 수 있었습니다.
 
