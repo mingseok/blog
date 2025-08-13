@@ -155,6 +155,7 @@ Long added = redisTemplate.opsForSet().add(key, String.valueOf(memberId));
 
 ### 2. 동기화 범위 개선으로 시간 복잡도 개선
 
+
 변경이 발생한 게시글만 추적하는 방식으로 개선했다.
 
 ```java
