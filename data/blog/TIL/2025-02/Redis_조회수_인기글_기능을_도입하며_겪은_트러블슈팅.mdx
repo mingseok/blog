@@ -179,7 +179,7 @@ for (String id : articleIds) {
 
 #### 이 문제를 해결하기 위해 인기글 랭킹을 실시간 계산 → 주기적 캐싱으로 구조 변경하였다.
 
-![image.png](/static/images/image243.png)
+![image.png](/static/images/image250.png)
 
 
 - 게시글 조회수는 Redis에 저장 (예: `article:view:{id}`)
@@ -220,7 +220,7 @@ public List<ArticleListResponse> getTopRankedArticles() {
 
 ### 배치 업데이트로 DB 성능 개선
 
-![image.png](/static/images/image244.png)
+![image.png](/static/images/image251.png)
 
 기존에는 조회수 동기화 시 각 게시글마다 개별 UPDATE 쿼리를 실행하는 방식이었다.
 
