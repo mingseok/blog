@@ -1,0 +1,406 @@
+---
+title: 'MySQL 부하를 줄이는 실시간 조회수 업데이트 개선'
+date: '2025-08-19'
+tags: ['프로젝트', 'Redis', '조회수', 'MySQL', '실시간']
+draft: false
+summary: '실시간 조회수 업데이트로 인한 MySQL 락 병목을 Redis 지연 업데이트와 배치 처리로 개선해, 응답 속도와 DB 부하를 크게 줄였다.'
+---
+
+### Introduction
+
+<TOCInline toc={props.toc} exclude="Introduction" />
+
+
+## 상황
+
+게시글 조회수 기능을 구현할 때 사용자가 게시글을 볼 때마다 즉시 데이터베이스의 조회수를 증가시켰다.
+
+```java
+@Transactional
+public void increaseViewCount(Long articleId) {
+    // 게시글 조회할 때마다 즉시 DB 업데이트*
+    articleRepository.incrementViewCount(articleId);
+}
+```
+
+#### sql 쿼리
+
+```sql
+UPDATE article SET view_count = view_count + 1 WHERE id = ?
+```
+
+사용자가 게시글을 보는 순간 조회수가 증가하므로 실시간으로 조회수를 보여줄 수 있었다.
+
+### 부하 테스트로 발견한 성능 저하
+
+`하나의 게시글에 트래픽이 집중되는 상황`을 중점적으로 테스트했다.
+
+```java
+테스트 도구: JMeter
+시나리오: 동일한 인기 게시글(ID: 123)에 집중 접근
+테스트 패턴: 1분 내 1000명이 동시에 같은 게시글 접근
+```
+
+#### 테스트 결과
+
+- 평균 응답시간: `50ms → 1.8초로 증가`
+- 응답시간: `3.2초` (일부 요청은 더 오래 걸림)
+
+<br/>
+
+## 문제
+
+### 순차 처리로 인한 성능 저하
+
+![image.png](/static/images/image252.png)
+
+
+병렬로 처리되어야 할 1000개의 요청이 `줄을 서서 하나씩 처리`되는 상황이 발생했다.
+
+#### 사용자들이 동시에 실행하려는 쿼리
+
+```sql
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;  
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+
+... 1000개의 동일한 쿼리
+```
+
+여러 사용자가 동시에 같은 게시글의 조회수를 수정하려고 할 때, MySQL은 데이터 일관성을 위해 한 번에 한 명씩만 수정을 허용한다.
+
+<br/>
+
+### 대기 시간의 누적
+
+각 UPDATE 작업은 개별적으로는 빠르지만(약 2ms), 순차 처리로 인해 대기 시간이 누적되는 것이다.
+
+- 1번째 사용자: 0ms 대기 + 2ms 실행 = 2ms
+- 2번째 사용자: 2ms 대기 + 2ms 실행 = 4ms
+- 3번째 사용자: 4ms 대기 + 2ms 실행 = 6ms
+- ...
+- 1000번째 사용자: 1998ms 대기 + 2ms 실행 = 약 2초
+
+결과적으로 마지막 사용자는 약 2초를 기다려야 하는 것이다.
+
+<br/>
+
+## 원인
+
+### MySQL InnoDB의 동작 방식 분석
+
+순차 처리 문제가 발생하는 이유를 MySQL의 내부 동작을 통해 분석해봤다.
+
+### InnoDB의 트랜잭션 격리와 락 메커니즘
+
+MySQL InnoDB는 ACID 특성을 보장하기 위해 MVCC(Multi-Version Concurrency Control)와 데이터 잠금 장치(락 시스템)을 함께 사용한다.
+
+하지만 UPDATE 작업의 경우 데이터 수정이 발생하므로 읽기와는 다른 방식으로 처리된다.
+
+```sql
+-- 조회수 증가 쿼리 실행 시 MySQL 내부 동작
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+```
+
+### InnoDB가 이 쿼리를 처리하는 과정
+
+1. 행 식별: WHERE 조건에 맞는 행을 Primary Key 인덱스를 통해 빠르게 찾는다.
+
+![image.png](/static/images/image253.png)
+
+<br/>
+
+2. 쓰기 락 설정: 해당 행에 Lock(Exclusive Lock) 설정
+
+![image.png](/static/images/image254.png)
+
+
+3. `현재 값 읽기:` view_count의 현재 값을 읽음 (예: 100)
+4. `값 계산:` 새로운 값 계산 (100 + 1 = 101)
+5. `값 업데이트:` 새로운 값으로 행 수정
+6. `락 해제:` 트랜잭션 커밋 후 락 해제
+
+<br/>
+
+### 쓰기 락(Lock)의 동작 원리
+
+쓰기 `락은 한 번에 하나의 트랜잭션만 특정 행을 수정할 수 있도록 보장`하는 것이다.
+
+```sql
+-- 시간순으로 발생하는 상황
+
+시간 T1: 사용자 A의 트랜잭션
+BEGIN;
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+-- id=123 행에 Lock 획득
+
+시간 T2: 사용자 B의 트랜잭션 (동시 실행 시도)
+BEGIN;
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+-- 같은 행에 이미 Lock이 걸려있음 → 대기 상태
+
+시간 T3: 사용자 C의 트랜잭션 (동시 실행 시도)  
+BEGIN;
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+-- 대기 큐에 추가
+
+시간 T4: 사용자 A의 트랜잭션 완료
+COMMIT;
+-- Lock 해제, 사용자 B의 트랜잭션이 실행 시작
+```
+
+#### 락 대기 큐
+
+![image.png](/static/images/image255.png)
+
+<br/>
+
+### MVCC가 UPDATE에서 작동하지 않는 이유
+
+일반적으로 InnoDB는 MVCC 덕분에 여러 사용자가 동시에 같은 데이터를 읽어도 서로 방해하지 않고 처리할 수 있다. (여러 트랜잭션이 동시에 같은 데이터를 읽을 수 있는 이유)
+
+```sql
+-- SELECT는 동시 실행 가능 (MVCC 덕분)
+SELECT view_count FROM article WHERE id = 123;  -- 트랜잭션 A
+SELECT view_count FROM article WHERE id = 123;  -- 트랜잭션 B (동시 실행 가능)
+SELECT view_count FROM article WHERE id = 123;  -- 트랜잭션 C (동시 실행 가능)
+```
+
+#### 하지만 UPDATE는 다르다.
+
+- `읽기(SELECT):` 과거 버전의 데이터를 읽을 수 있으므로 락 없이 동시 실행 가능
+- `쓰기(UPDATE):` 실제 데이터를 변경하므로 쓰기 접근 필요
+
+UPDATE 작업에서는 일관성 문제가 발생할 수 있기 때문이다.
+
+```sql
+-- 만약 동시 UPDATE가 허용된다면?
+트랜잭션 A: view_count 읽기 (100) → +1 계산 (101) → 저장 (101)
+트랜잭션 B: view_count 읽기 (100) → +1 계산 (101) → 저장 (101)
+```
+
+![image.png](/static/images/image256.png)
+
+<br/>
+
+### InnoDB 버퍼 풀과 페이지 단위 처리
+
+InnoDB는 데이터를 `16KB 크기의 페이지 단위로 관리`한다. 하나의 페이지에는 여러 개의 article 레코드가 저장될 수 있다.
+
+![image.png](/static/images/image257.png)
+
+#### UPDATE 작업 시 InnoDB는 다음과 같은 과정을 거친다.
+
+1. 페이지 래치: 해당 페이지에 대한 배타적 래치 획득
+2. 행 락: 특정 행에 대한 Lock 설정
+3. 데이터 수정: 실제 값 변경
+4. 로그 기록: Redo Log, Undo Log에 변경사항 기록
+5. 래치 해제: 페이지 래치 해제
+6. 락 해제: 트랜잭션 커밋 후 행 락 해제
+
+이 과정에서 행 수준 락이 가장 긴 시간 동안 유지되며, 이것이 순차 처리의 주요 원인이였다.
+
+<br/>
+
+### 페이지 래치 vs 행 락의 차이점
+
+페이지 래치(Page Latch)는 `메모리 상에서 16KB 페이지에 단기간 보호 장치`이다. 물리적 데이터 일관성을 보장하며 짧게 유지된다. 여러 행이 포함된 페이지를 읽거나 쓸 때 해당 페이지가 변경되지 않도록 잠깐 보호하는 역할을 한다.
+
+반면 행 락(Row Lock)은 논리적 데이터 일관성을 보장하는 장치로 `트랜잭션이 완전히 끝날 때까지` 유지된다. 조회수 업데이트의 경우 시간 차이가 발생한다.
+
+```sql
+페이지 래치: 0.001ms (데이터 페이지 접근 시에만)
+행 락: 전체 트랜잭션 시간 (2-10ms)
+```
+
+#### 왜 행 락이 오래 유지되는가?
+
+행 락이 오래 유지되는 이유는 ACID 특성 중 `Isolation(격리성)을 보장`하기 위함이다.
+
+```sql
+-- 트랜잭션 A
+BEGIN;
+UPDATE article SET view_count = view_count + 1 WHERE id = 123;
+-- 이 시점에서 행 락 설정
+-- 비즈니스 로직 처리 시간...
+-- 다른 검증 작업들...
+COMMIT; -- 이 시점에서 행 락 해제
+```
+
+만약 행 락이 UPDATE 즉시 해제된다면 밑에와 같은 상황에서 문제가 발생할 수 있다.
+
+`문제 상황)`
+
+1. 트랜잭션 A: `view_count = 100` 읽음 → `101`로 수정
+2. 트랜잭션 A: 행 락 즉시 해제 (아직 커밋 전)
+3. 트랜잭션 B: 같은 행 접근 → `100` 읽음 → `101`로 수정
+4. 트랜잭션 A: 롤백 발생 → `view_count = 100`으로 되돌림
+5. 결과: 트랜잭션 B의 수정사항이 사라짐 (Dirty Read 문제)
+
+<br/>
+
+### 트랜잭션 로그의 부담
+
+각 UPDATE마다 `InnoDB는 트랜잭션 로그를 기록`해야 한다.
+
+Redo Log (재실행 로그)
+
+```sql
+LSN 1001: UPDATE article SET view_count = 1204 WHERE id = 123
+LSN 1002: UPDATE article SET view_count = 1205 WHERE id = 123  
+LSN 1003: UPDATE article SET view_count = 1206 WHERE id = 123
+...
+LSN 2000: UPDATE article SET view_count = 2203 WHERE id = 123
+```
+
+Undo Log (되돌리기 로그)
+
+```sql
+Transaction 501: article(id=123).view_count = 1203 (이전 값 보관)
+Transaction 502: article(id=123).view_count = 1204 (이전 값 보관)
+Transaction 503: article(id=123).view_count = 1205 (이전 값 보관)
+...
+```
+
+1000번의 UPDATE는 2000개의 로그 엔트리(Redo + Undo)를 생성하며, 각 로그 기록마다 디스크 동기화(fsync) 가 필요할 수 있다. 개별 UPDATE 작업의 처리 시간을 늘려 전체적인 순차 처리 시간을 증가시킨다.
+
+<br/>
+
+### 왜 Primary Key 기반인데도 느릴까?
+
+```sql
+UPDATE article SET view_count = view_count + 1 WHERE id = ?
+```
+
+이 쿼리는 Primary Key(id)를 사용하므로 `인덱스 스캔이 빠르다.` 행을 찾는 것은 문제가 없다.
+
+#### 진짜 문제는 찾은 후의 처리 과정이다.
+
+1. 행 찾기: 1ms (빠름, Primary Key 인덱스 사용)
+2. 락 대기: 0ms ~ 2000ms (이전 트랜잭션들이 완료될 때까지)
+3. 실제 업데이트: 1ms (빠름)
+4. 로그 기록: 1ms (빠름)
+
+결국 `락 대기 시간이 전체 처리 시간의 대부분`을 차지하게 된다. Primary Key를 사용한다고 해서 동시성 문제가 해결되지는 않는 것이다. MySQL InnoDB의 동작 방식 때문에, 동일한 행에 대한 UPDATE는 순차 처리로 이어지며, 동시성이 요구되는 조회수 기능에서는 성능 병목이 된다.
+
+<br/>
+
+## 해결
+
+MySQL의 원인을 해결하기 위해 Redis 기반 지연 업데이트를 선택했다.
+
+### 응답은 빠르게, DB 처리는 지연 업데이트
+
+기존 방식의 문제는 모든 조회수 증가를 즉시 MySQL에 반영하려 했다는 점이다. 그렇기에 새로운 접근 방법으로 개선했다.
+
+- `사용자 관점:` 여전히 실시간 조회수 확인 가능
+- `MySQL 관점:` 부하가 있을 수 있는 UPDATE 작업은 배치 처리
+
+Redis와 MySQL은 즉시 같은 값을 가지진 않지만, 주기적으로 동기화를 해서 결국에는 같은 값을 유지한다.
+
+```sql
+기존: 사용자 조회 → 즉시 MySQL UPDATE (락 충돌 발생)
+개선: 사용자 조회 → Redis 증가 → 실시간 표시 + 주기적 MySQL 배치 업데이트
+```
+
+<br/>
+
+### Redis를 통한 즉시 처리
+
+```java
+public void increaseViewCount(Long articleId, Long memberId) {
+    String key = RedisKey.getViewedMembersKey(articleId);
+    Long added = redisTemplate.opsForSet().add(key, String.valueOf(memberId));
+
+    if (added != RedisConstants.REDIS_SET_ADD_SUCCESS) {
+        return; // 중복 조회 방지
+    }
+
+    // Redis에서 조회수 증가 (MySQL 접근 없음)    
+    redisTemplate.opsForValue().increment(RedisKey.getArticleViewKey(articleId));
+    redisTemplate.opsForSet().add(RedisKey.articlesSaveDbKey(), articleId.toString());
+}
+```
+
+#### Redis 사용의 핵심 장점
+
+- `락 없는 처리:` Redis는 단일 스레드 기반으로 락 충돌할 경우를 차단한다.
+- `메모리 기반 속도:` 디스크를 거치지 않아 MySQL보다 빠르게 처리가 가능하다.
+- `원자적 연산:` `INCREMENT` 명령어로 동시성 문제 해결
+
+<br/>
+
+### 실시간 조회수 표시 유지
+
+```java
+public Long getTotalViewCount(Long articleId, Long dbViewCount) {
+    String redisValue = redisTemplate.opsForValue()
+            .get(RedisKey.getArticleViewKey(articleId));
+
+    long redisCount = 0L;
+    if (redisValue != null) {
+        redisCount = Long.parseLong(redisValue);
+    }
+    
+    // DB 조회수 + Redis 증분 = 실시간 조회수
+    return dbViewCount + redisCount;
+}
+```
+
+사용자는 `여전히 실시간 조회수를 확인`할 수 있다.
+
+Redis에 저장된 값을 DB 값과 합쳐서 즉시 표시하기 때문에 가능하다.
+
+<br/>
+
+### 배치를 통한 MySQL 부하 분산
+
+```java
+public void batchUpdate(List<ViewCountUpdateDto> updateList) {
+    String sql = """
+        UPDATE article 
+        SET view_count = view_count + :viewCount 
+        WHERE id = :articleId
+        """;
+    
+    // 500개씩 배치 처리로 MySQL 부하 최소화
+    for (int startIndex = 0; startIndex < parameterSources.size(); startIndex += BATCH_SIZE) {
+        List<MapSqlParameterSource> batch = parameterSources.subList(startIndex, endIndex);
+        namedJdbcTemplate.batchUpdate(sql, batch.toArray(new MapSqlParameterSource[0]));
+    }
+}
+```
+
+#### 배치 처리의 효과
+
+- 락 충돌 해결: 1000번의 개별 UPDATE → 1번의 배치 UPDATE
+- 트랜잭션 로그 감소: 1000개 트랜잭션 → 2개 트랜잭션 (배치 크기 500 기준)
+- 디스크 동기화 개선: 커밋 횟수 감소
+
+<br/>
+
+## 결과
+
+Redis 기반 지연 업데이트 전략을 도입한 결과, 조회수 기능의 성능이 개선되었다.
+
+![image.png](/static/images/image258.png)
+
+<br/>
+
+### 응답 시간 80% 이상 개선
+
+![image.png](/static/images/image259.png)
+
+1000명이 동시에 같은 게시글에 접근할 때마다 MySQL의 락 충돌로 인해 `평균 응답 시간이 1.8초, 최악의 경우 3.2초까지 소요`되는 상황이 발생했지만, 구조 개선 이후에는 Redis의 메모리 기반 처리와 락 없는 INCREMENT 연산 덕분에 동일한 조건에서 `평균 응답 시간이 2ms, 최악의 경우에도 5ms 이하`로 개선되었다.
+
+실제로 가장 느린 사용자 기준으로 3.2초 → 5ms로 단축되어 약 10배가 넘는 성능 개선을 달성했으며 평균적으로빨라진 결과를 보였다.
+
+<br/>
+
+### MySQL 부하 대폭 감소
+
+조회수 증가를 위해 매번 UPDATE 트랜잭션이 실행되어 `1000번의 접근 시 1000개의 트랜잭션이 순차적으로 처리`되었다. 이 방식은 각 트랜잭션마다 `행 락 획득 → 값 수정 → 로그 기록 → 락 해제`라는 과정을 거쳐야 했고, 동일한 행에 대한 락 충돌로 인해 `커넥션 사용률이 100%에 도달`하는 문제가 발생했다.
+
+하지만 개선된 구조에서는 Redis에서 즉시 처리 후 주기적으로 배치 업데이트를 수행하여 `1000번의 개별 트랜잭션을 2번의 배치 트랜잭션으로 통합`했다.
+
+그 결과, MySQL 커넥션 사용률이 40% 수준으로 안정화되었고, 조회수 관련 락 대기 현상이 사라졌다.
