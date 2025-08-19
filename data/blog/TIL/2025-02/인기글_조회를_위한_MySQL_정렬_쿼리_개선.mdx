@@ -172,19 +172,19 @@ CREATE INDEX idx_view_count ON article(view_count DESC);
 
 #### 문제점들
 
-- 쓰기 성능 저하: 조회수가 증가할 때마다 인덱스 페이지 수정 필요하다.
+쓰기 성능 저하: 조회수가 증가할 때마다 인덱스 페이지 수정 필요하다.
 
 ![image.png](/static/images/image264.png)
 
 <br/>
 
-- 락 충돌 증가: 인기 글의 조회수 업데이트 시 인덱스 레벨에서 락 충돌 발생
+락 충돌 증가: 인기 글의 조회수 업데이트 시 인덱스 레벨에서 락 충돌 발생
 
 ![image.png](/static/images/image265.png)
 
 <br/>
 
-- 메모리 사용량 증가: 인덱스도 버퍼 풀에 캐시되어 메모리 사용량 증가
+메모리 사용량 증가: 인덱스도 버퍼 풀에 캐시되어 메모리 사용량 증가
 
 ![image.png](/static/images/image266.png)
 
@@ -216,6 +216,8 @@ EXPLAIN FORMAT=JSON SELECT * FROM article ORDER BY view_count DESC LIMIT 5;
 ```
 
 ![image.png](/static/images/image267.png)
+
+![image.png](/static/images/image270.png)
 
 <br/>
 
