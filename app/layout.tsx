@@ -3,6 +3,7 @@ import 'pliny/search/algolia.css'
 import 'remark-github-blockquote-alert/alert.css'
 
 import { Space_Grotesk } from 'next/font/google'
+import localFont from 'next/font/local'
 import { Analytics, AnalyticsConfig } from 'pliny/analytics'
 import { SearchProvider, SearchConfig } from 'pliny/search'
 import Header from '@/components/Header'
@@ -16,6 +17,19 @@ const space_grotesk = Space_Grotesk({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-space-grotesk',
+})
+
+// 본문 기본 글꼴 — Space Grotesk 는 한글 자체를 담고 있지 않아 한글이 시스템 글꼴로
+// 떨어진다. 한글 본문은 Pretendard 로 받는다.
+const pretendard = localFont({
+  src: [
+    { path: './fonts/Pretendard-Regular.woff2', weight: '400' },
+    { path: './fonts/Pretendard-Medium.woff2', weight: '500' },
+    { path: './fonts/Pretendard-SemiBold.woff2', weight: '600' },
+    { path: './fonts/Pretendard-Bold.woff2', weight: '700' },
+  ],
+  display: 'swap',
+  variable: '--font-pretendard',
 })
 
 export const metadata: Metadata = {
@@ -64,7 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang={siteMetadata.language}
-      className={`${space_grotesk.variable} scroll-smooth`}
+      className={`${space_grotesk.variable} ${pretendard.variable} scroll-smooth`}
       suppressHydrationWarning
     >
       <link
@@ -94,7 +108,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff" />
       <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000" />
       <link rel="alternate" type="application/rss+xml" href={`${basePath}/feed.xml`} />
-      <body className="bg-white pl-[calc(100vw-100%)] text-black antialiased dark:bg-gray-950 dark:text-white">
+      <body className="bg-white pl-[calc(100vw-100%)] text-black antialiased transition-colors ease-out dark:bg-zinc-900 dark:text-white">
         <ThemeProviders>
           <Analytics analyticsConfig={siteMetadata.analytics as AnalyticsConfig} />
           <SectionContainer>

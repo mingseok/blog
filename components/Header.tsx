@@ -7,7 +7,8 @@ import ThemeSwitch from './ThemeSwitch'
 import SearchButton from './SearchButton'
 
 const Header = () => {
-  let headerClass = 'flex items-center w-full bg-white dark:bg-gray-950 justify-between py-10'
+  // 헤더 배경은 body 와 같은 값이어야 한다 — 다르면 고정 헤더가 띠처럼 도드라진다.
+  let headerClass = 'flex items-center w-full bg-white dark:bg-zinc-900 justify-between py-10'
   if (siteMetadata.stickyNav) {
     headerClass += ' sticky top-0 z-50'
   }

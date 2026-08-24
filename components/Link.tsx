@@ -15,8 +15,15 @@ const CustomLink = ({ href, ...rest }: LinkProps & AnchorHTMLAttributes<HTMLAnch
     return <a className="break-words" href={href} {...rest} />
   }
 
+  // external — 본문(prose) 안에서 링크 끝에 ↗ 를 붙여 바깥으로 나가는 링크임을 알린다.
   return (
-    <a className="break-words" target="_blank" rel="noopener noreferrer" href={href} {...rest} />
+    <a
+      className="external break-words"
+      target="_blank"
+      rel="noopener noreferrer"
+      href={href}
+      {...rest}
+    />
   )
 }
 
