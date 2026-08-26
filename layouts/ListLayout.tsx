@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { formatDate } from 'pliny/utils/formatDate'
 import { CoreContent } from 'pliny/utils/contentlayer'
 import type { Blog } from 'contentlayer/generated'
 import Link from '@/components/Link'
+import PostDate from '@/components/PostDate'
 import Tag from '@/components/Tag'
-import siteMetadata from '@/data/siteMetadata'
 
 interface PaginationProps {
   totalPages: number
@@ -119,8 +118,8 @@ export default function ListLayout({
                 <article className="space-y-2 xl:grid xl:grid-cols-4 xl:items-baseline xl:space-y-0">
                   <dl>
                     <dt className="sr-only">Published on</dt>
-                    <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                      <time dateTime={date}>{formatDate(date, siteMetadata.locale)}</time>
+                    <dd>
+                      <PostDate date={date} />
                     </dd>
                   </dl>
                   <div className="space-y-3 xl:col-span-3">
@@ -130,7 +129,7 @@ export default function ListLayout({
                           {title}
                         </Link>
                       </h3>
-                      <div className="flex flex-wrap">
+                      <div className="mt-1 flex flex-wrap gap-2">
                         {tags?.map((tag) => <Tag key={tag} text={tag} />)}
                       </div>
                     </div>

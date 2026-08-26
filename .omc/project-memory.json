@@ -1,0 +1,229 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1787662543368,
+  "projectRoot": "/Users/kimminseok/IdeaProjects/blog",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": ["package.json"]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": ["tsconfig.json"]
+      },
+      {
+        "name": "JavaScript",
+        "version": null,
+        "confidence": "high",
+        "markers": ["jsconfig.json"]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "esbuild",
+        "version": "0.20.2",
+        "category": "build"
+      },
+      {
+        "name": "next",
+        "version": "14.2.3",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.3.1",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "yarn",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "yarn build",
+    "testCommand": null,
+    "lintCommand": "yarn lint",
+    "devCommand": "yarn dev",
+    "scripts": {
+      "start": "next dev",
+      "dev": "cross-env INIT_CWD=$PWD next dev",
+      "build": "cross-env INIT_CWD=$PWD next build && cross-env NODE_OPTIONS='--experimental-json-modules' node ./scripts/postbuild.mjs",
+      "serve": "next start",
+      "analyze": "cross-env ANALYZE=true next build",
+      "lint": "next lint --fix --dir pages --dir app --dir components --dir lib --dir layouts --dir scripts",
+      "prepare": "husky"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": ["app", "components", "public", "scripts"],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 9,
+      "lastAccessed": 1787662543311,
+      "keyFiles": ["Main.tsx", "layout.tsx", "not-found.tsx", "page.tsx", "robots.ts"]
+    },
+    "components": {
+      "path": "components",
+      "purpose": "UI components",
+      "fileCount": 17,
+      "lastAccessed": 1787662543312,
+      "keyFiles": ["Card.tsx", "Comments.tsx", "Footer.tsx", "Header.tsx", "Image.tsx"]
+    },
+    "css": {
+      "path": "css",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1787662543314,
+      "keyFiles": ["prism.css", "tailwind.css"]
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 5,
+      "lastAccessed": 1787662543315,
+      "keyFiles": [
+        "headerNavLinks.ts",
+        "logo.svg",
+        "projectsData.ts",
+        "references-data.bib",
+        "siteMetadata.js"
+      ]
+    },
+    "faq": {
+      "path": "faq",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1787662543315,
+      "keyFiles": ["custom-mdx-component.md", "customize-kbar-search.md"]
+    },
+    "layouts": {
+      "path": "layouts",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1787662543315,
+      "keyFiles": [
+        "AuthorLayout.tsx",
+        "ListLayout.tsx",
+        "ListLayoutWithTags.tsx",
+        "PostBanner.tsx",
+        "PostLayout.tsx"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 2,
+      "lastAccessed": 1787662543315,
+      "keyFiles": ["feed.xml", "search.json"]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 2,
+      "lastAccessed": 1787662543315,
+      "keyFiles": ["postbuild.mjs", "rss.mjs"]
+    },
+    "app/lib": {
+      "path": "app/lib",
+      "purpose": "Library code",
+      "fileCount": 1,
+      "lastAccessed": 1787662543315,
+      "keyFiles": ["observer.ts"]
+    },
+    "public/static": {
+      "path": "public/static",
+      "purpose": "Static files",
+      "fileCount": 0,
+      "lastAccessed": 1787662543316,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "app/Main.tsx",
+      "accessCount": 20,
+      "lastAccessed": 1787754996645,
+      "type": "file"
+    },
+    {
+      "path": "layouts/ListLayoutWithTags.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1787755012157,
+      "type": "file"
+    },
+    {
+      "path": "data/logo.svg",
+      "accessCount": 8,
+      "lastAccessed": 1787755577213,
+      "type": "file"
+    },
+    {
+      "path": "layouts/ListLayout.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1787743025046,
+      "type": "file"
+    },
+    {
+      "path": "components/Tag.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1787743004266,
+      "type": "file"
+    },
+    {
+      "path": "components/PostDate.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787742410084,
+      "type": "file"
+    },
+    {
+      "path": ".claude/launch.json",
+      "accessCount": 1,
+      "lastAccessed": 1787742456826,
+      "type": "file"
+    },
+    {
+      "path": "layouts/PostLayout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787743027199,
+      "type": "file"
+    },
+    {
+      "path": "app/tags/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787743028735,
+      "type": "file"
+    },
+    {
+      "path": "components/PostCard.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787754987009,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

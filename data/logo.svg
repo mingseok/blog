@@ -1,3 +1,68 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet" viewBox="344.5639097744361 330.27819548872174 111.73684210526318 91.21804511278197" width="53.87" height="43.61"><defs><path d="M453.3 331.28L453.3 359.85L388.64 418.5L388.64 388.42L453.3 331.28Z" id="aFZf6T5ED"></path><linearGradient id="gradientb2ThqnP5Op" gradientUnits="userSpaceOnUse" x1="420.97" y1="331.28" x2="420.97" y2="418.5"><stop style="stop-color: #06b6d4;stop-opacity: 1" offset="0%"></stop><stop style="stop-color: #67e8f9;stop-opacity: 1" offset="100%"></stop></linearGradient><path d="M410.23 331.28L410.23 359.85L345.56 418.5L345.56 388.42L410.23 331.28Z" id="a9fehgwfM"></path><linearGradient id="gradientk1wNV9Ostb" gradientUnits="userSpaceOnUse" x1="377.89" y1="331.28" x2="377.89" y2="418.5"><stop style="stop-color: #06b6d4;stop-opacity: 1" offset="0%"></stop><stop style="stop-color: #67e8f9;stop-opacity: 1" offset="100%"></stop></linearGradient></defs><g><g><use xlink:href="#aFZf6T5ED" opacity="1" fill="url(#gradientb2ThqnP5Op)"></use></g><g><use xlink:href="#a9fehgwfM" opacity="1" fill="url(#gradientk1wNV9Ostb)"></use></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="44" height="44">
+  <defs>
+    <clipPath id="msRound">
+      <circle cx="32" cy="32" r="30" />
+    </clipPath>
+  </defs>
+
+  <!-- 배경 — 사진 속 카페의 따뜻한 크림색 벽 -->
+  <circle cx="32" cy="32" r="30" fill="#f1e9dc" />
+
+  <g clip-path="url(#msRound)">
+    <!-- 고개를 살짝 기울인 포즈 -->
+    <g transform="rotate(-7 32 36)">
+      <!-- 코트 깃 -->
+      <path d="M8 64 L14 47 L26 52 L20 64 Z" fill="#565b62" />
+      <path d="M56 64 L50 47 L38 52 L44 64 Z" fill="#565b62" />
+      <path d="M12 64 Q32 44 52 64 Z" fill="#43474d" />
+
+      <!-- 목도리 — 두툼하게 감은 검은 니트 -->
+      <path d="M15 64 Q13.5 48 24 45 Q32 43.2 40 45 Q50.5 48 49 64 Z" fill="#22252a" />
+      <path d="M25 46.5 Q32 49.5 39 46.5" fill="none" stroke="#171a1e" stroke-width="2" stroke-linecap="round" />
+      <path d="M19 53 Q32 48.5 45 53" fill="none" stroke="#31353b" stroke-width="1.5" stroke-linecap="round" />
+
+      <!-- 얼굴 -->
+      <ellipse cx="32" cy="32.5" rx="13.2" ry="14.2" fill="#f9e4d0" />
+
+      <!-- 볼터치 -->
+      <ellipse cx="23.5" cy="39" rx="2.6" ry="1.6" fill="#f3b39a" opacity="0.5" />
+      <ellipse cx="40.5" cy="39" rx="2.6" ry="1.6" fill="#f3b39a" opacity="0.5" />
+
+      <!-- 눈 — 웃을 때처럼 부드럽게 (눈썹은 사진처럼 앞머리에 가려진다) -->
+      <circle cx="25.2" cy="34.3" r="1.7" fill="#231a16" />
+      <circle cx="38.8" cy="34.3" r="1.7" fill="#231a16" />
+      <circle cx="25.8" cy="33.7" r="0.5" fill="#ffffff" />
+      <circle cx="39.4" cy="33.7" r="0.5" fill="#ffffff" />
+      <path d="M23 36.6 Q25.2 37.6 27.4 36.6" fill="none" stroke="#e8c4a8" stroke-width="1" stroke-linecap="round" />
+      <path d="M36.6 36.6 Q38.8 37.6 41 36.6" fill="none" stroke="#e8c4a8" stroke-width="1" stroke-linecap="round" />
+
+      <!-- 코 -->
+      <path d="M32 36.5 Q31.2 39.5 32.6 40.2" fill="none" stroke="#e0b090" stroke-width="1.2" stroke-linecap="round" />
+
+      <!-- 입 — 사진처럼 한쪽이 살짝 올라간 미소 -->
+      <path d="M28.6 43.6 Q31.6 45.6 35 43.2" fill="none" stroke="#c96f5e" stroke-width="1.7" stroke-linecap="round" />
+
+      <!-- 머리 — 앞머리를 내린 풍성한 검은 머리 -->
+      <path
+        d="M18.5 41
+           C15 25 20.5 12 32 11.6
+           C43.5 12 49 25 45.5 41
+           C45.9 33.6 45.2 29.4 44.2 27.2
+           C43.8 30.9 42.3 33.2 40.2 33.9
+           C39.1 31 38.4 28.2 37.4 26.2
+           C36.3 29.3 34.2 31.6 31.8 32.2
+           C30.5 29.4 29.2 27.2 27.8 25.9
+           C26.9 28.9 25.6 30.9 23.8 31.7
+           C23.1 29 22.2 26.9 21.4 25.6
+           C20.4 28.9 19.9 32.5 19.8 35.4
+           C19.4 37.4 19 39.2 18.5 41 Z"
+        fill="#221c19"
+      />
+      <!-- 머릿결 윤기 -->
+      <path d="M24 16.5 Q30 13.5 37 15.5" fill="none" stroke="#3a322d" stroke-width="1.4" stroke-linecap="round" />
+    </g>
+  </g>
+
+  <!-- 테두리 -->
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#d8cfc0" stroke-width="1.5" />
+</svg>

@@ -2,7 +2,7 @@
 const siteMetadata = {
   title: "mingseok's blog",
   author: 'mingseok',
-  headerTitle: "mingseok's blog",
+  headerTitle: '민석 블로그',
   description: '밍석의 devlog',
   language: 'ko-kr',
   theme: 'dark', // system, dark or light
