@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1787662543368,
+  "lastScanned": 1788509607736,
   "projectRoot": "/Users/kimminseok/IdeaProjects/blog",
   "techStack": {
     "languages": [
@@ -84,28 +84,28 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 9,
-      "lastAccessed": 1787662543311,
+      "lastAccessed": 1788509607709,
       "keyFiles": ["Main.tsx", "layout.tsx", "not-found.tsx", "page.tsx", "robots.ts"]
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
-      "fileCount": 17,
-      "lastAccessed": 1787662543312,
+      "fileCount": 19,
+      "lastAccessed": 1788509607710,
       "keyFiles": ["Card.tsx", "Comments.tsx", "Footer.tsx", "Header.tsx", "Image.tsx"]
     },
     "css": {
       "path": "css",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1787662543314,
+      "lastAccessed": 1788509607712,
       "keyFiles": ["prism.css", "tailwind.css"]
     },
     "data": {
       "path": "data",
       "purpose": "Data files",
       "fileCount": 5,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607712,
       "keyFiles": [
         "headerNavLinks.ts",
         "logo.svg",
@@ -118,14 +118,14 @@
       "path": "faq",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607712,
       "keyFiles": ["custom-mdx-component.md", "customize-kbar-search.md"]
     },
     "layouts": {
       "path": "layouts",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607712,
       "keyFiles": [
         "AuthorLayout.tsx",
         "ListLayout.tsx",
@@ -138,90 +138,48 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 2,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607712,
       "keyFiles": ["feed.xml", "search.json"]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607712,
       "keyFiles": ["postbuild.mjs", "rss.mjs"]
     },
     "app/lib": {
       "path": "app/lib",
       "purpose": "Library code",
       "fileCount": 1,
-      "lastAccessed": 1787662543315,
+      "lastAccessed": 1788509607713,
       "keyFiles": ["observer.ts"]
     },
     "public/static": {
       "path": "public/static",
       "purpose": "Static files",
       "fileCount": 0,
-      "lastAccessed": 1787662543316,
+      "lastAccessed": 1788509607713,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
-      "path": "app/Main.tsx",
-      "accessCount": 20,
-      "lastAccessed": 1787754996645,
+      "path": "data/blog/TIL/2026-09/PG_지연과_무응답에서_결제_승인을_지키는_방법.mdx",
+      "accessCount": 31,
+      "lastAccessed": 1788594381421,
       "type": "file"
     },
     {
-      "path": "layouts/ListLayoutWithTags.tsx",
-      "accessCount": 15,
-      "lastAccessed": 1787755012157,
-      "type": "file"
-    },
-    {
-      "path": "data/logo.svg",
-      "accessCount": 8,
-      "lastAccessed": 1787755577213,
-      "type": "file"
-    },
-    {
-      "path": "layouts/ListLayout.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1787743025046,
-      "type": "file"
-    },
-    {
-      "path": "components/Tag.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787743004266,
-      "type": "file"
-    },
-    {
-      "path": "components/PostDate.tsx",
+      "path": "data/blog/TIL/2025-02/Race_Condition_분석과_테스트_기반_검증.mdx",
       "accessCount": 1,
-      "lastAccessed": 1787742410084,
+      "lastAccessed": 1788588901375,
       "type": "file"
     },
     {
-      "path": ".claude/launch.json",
+      "path": "public/static/images/PG_지연_그림2.png",
       "accessCount": 1,
-      "lastAccessed": 1787742456826,
-      "type": "file"
-    },
-    {
-      "path": "layouts/PostLayout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787743027199,
-      "type": "file"
-    },
-    {
-      "path": "app/tags/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787743028735,
-      "type": "file"
-    },
-    {
-      "path": "components/PostCard.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787754987009,
+      "lastAccessed": 1788593868560,
       "type": "file"
     }
   ],
