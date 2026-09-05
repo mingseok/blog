@@ -19,11 +19,11 @@ const Header = () => {
         <div className="flex items-center justify-between">
           <div className="mr-3">
             <Image
-              src="/static/images/logo.png"
+              src="/static/images/김민석.png"
               alt={siteMetadata.headerTitle}
               width={44}
               height={44}
-              className="rounded-full"
+              className="h-11 w-11 rounded-full object-cover"
               priority
             />
           </div>

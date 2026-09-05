@@ -166,14 +166,32 @@
   "hotPaths": [
     {
       "path": "data/blog/TIL/2026-09/PG_지연과_무응답에서_결제_승인을_지키는_방법.mdx",
-      "accessCount": 31,
-      "lastAccessed": 1788594381421,
+      "accessCount": 32,
+      "lastAccessed": 1788595177379,
+      "type": "file"
+    },
+    {
+      "path": "components/TOC.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1788595964768,
       "type": "file"
     },
     {
       "path": "data/siteMetadata.js",
+      "accessCount": 3,
+      "lastAccessed": 1788595408484,
+      "type": "file"
+    },
+    {
+      "path": "data/authors/default.mdx",
       "accessCount": 2,
-      "lastAccessed": 1788594932331,
+      "lastAccessed": 1788595540085,
+      "type": "file"
+    },
+    {
+      "path": ".claude/launch.json",
+      "accessCount": 2,
+      "lastAccessed": 1788595856795,
       "type": "file"
     },
     {
@@ -186,6 +204,18 @@
       "path": "public/static/images/PG_지연_그림2.png",
       "accessCount": 1,
       "lastAccessed": 1788593868560,
+      "type": "file"
+    },
+    {
+      "path": "components/Header.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788595407197,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/김민석.png",
+      "accessCount": 1,
+      "lastAccessed": 1788595475051,
       "type": "file"
     }
   ],

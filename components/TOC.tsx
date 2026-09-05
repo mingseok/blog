@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getHeadingObserver } from 'app/lib/observer'
 
 interface TOCProps {
@@ -18,6 +18,15 @@ interface TOCProps {
  */
 const TOC = ({ toc, className }: TOCProps) => {
   const [currentId, setCurrentId] = useState('')
+  const navRef = useRef<HTMLElement>(null)
+
+  // 목차가 화면보다 길면 목차 안에서 따로 스크롤한다. 본문을 끝까지 내려야 아래 항목이 보이던 문제.
+  // 지금 읽는 제목이 목차 밖으로 나가면 목차만 살짝 움직여 보이게 한다.
+  useEffect(() => {
+    if (!currentId || !navRef.current) return
+    const active = navRef.current.querySelector<HTMLElement>(`a[href="#${currentId}"]`)
+    active?.scrollIntoView({ block: 'nearest' })
+  }, [currentId])
 
   useEffect(() => {
     if (toc.length === 0) return
@@ -38,7 +47,10 @@ const TOC = ({ toc, className }: TOCProps) => {
   if (toc.length === 0) return null
 
   return (
-    <nav className={`sticky top-32 pt-8 ${className ?? ''}`}>
+    <nav
+      ref={navRef}
+      className={`sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto pt-8 ${className ?? ''}`}
+    >
       <ul>
         {toc.map(({ value, url, depth }) => (
           <li
@@ -49,7 +61,10 @@ const TOC = ({ toc, className }: TOCProps) => {
                 : 'text-gray-500 dark:text-gray-300'
             } ${depth === 3 ? 'pl-4' : depth === 4 ? 'pl-8' : ''}`}
           >
-            <a href={url}>{value}</a>
+            {/* 긴 제목은 두 줄로 내려가지 않게 한 줄에서 말줄임. 전체 제목은 마우스를 올리면 보인다. */}
+            <a href={url} title={value} className="block truncate">
+              {value}
+            </a>
           </li>
         ))}
       </ul>
