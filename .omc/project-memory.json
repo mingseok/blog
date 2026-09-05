@@ -171,6 +171,12 @@
       "type": "file"
     },
     {
+      "path": "data/siteMetadata.js",
+      "accessCount": 2,
+      "lastAccessed": 1788594932331,
+      "type": "file"
+    },
+    {
       "path": "data/blog/TIL/2025-02/Race_Condition_분석과_테스트_기반_검증.mdx",
       "accessCount": 1,
       "lastAccessed": 1788588901375,
