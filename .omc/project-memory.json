@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1788509607736,
+  "lastScanned": 1788600748609,
   "projectRoot": "/Users/kimminseok/IdeaProjects/blog",
   "techStack": {
     "languages": [
@@ -84,28 +84,28 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 9,
-      "lastAccessed": 1788509607709,
+      "lastAccessed": 1788600748594,
       "keyFiles": ["Main.tsx", "layout.tsx", "not-found.tsx", "page.tsx", "robots.ts"]
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
       "fileCount": 19,
-      "lastAccessed": 1788509607710,
+      "lastAccessed": 1788600748595,
       "keyFiles": ["Card.tsx", "Comments.tsx", "Footer.tsx", "Header.tsx", "Image.tsx"]
     },
     "css": {
       "path": "css",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748595,
       "keyFiles": ["prism.css", "tailwind.css"]
     },
     "data": {
       "path": "data",
       "purpose": "Data files",
       "fileCount": 5,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748597,
       "keyFiles": [
         "headerNavLinks.ts",
         "logo.svg",
@@ -118,14 +118,14 @@
       "path": "faq",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748598,
       "keyFiles": ["custom-mdx-component.md", "customize-kbar-search.md"]
     },
     "layouts": {
       "path": "layouts",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748598,
       "keyFiles": [
         "AuthorLayout.tsx",
         "ListLayout.tsx",
@@ -138,84 +138,36 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 2,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748598,
       "keyFiles": ["feed.xml", "search.json"]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1788509607712,
+      "lastAccessed": 1788600748598,
       "keyFiles": ["postbuild.mjs", "rss.mjs"]
     },
     "app/lib": {
       "path": "app/lib",
       "purpose": "Library code",
       "fileCount": 1,
-      "lastAccessed": 1788509607713,
+      "lastAccessed": 1788600748599,
       "keyFiles": ["observer.ts"]
     },
     "public/static": {
       "path": "public/static",
       "purpose": "Static files",
       "fileCount": 0,
-      "lastAccessed": 1788509607713,
+      "lastAccessed": 1788600748599,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
       "path": "data/blog/TIL/2026-09/PG_지연과_무응답에서_결제_승인을_지키는_방법.mdx",
-      "accessCount": 32,
-      "lastAccessed": 1788595177379,
-      "type": "file"
-    },
-    {
-      "path": "components/TOC.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1788595964768,
-      "type": "file"
-    },
-    {
-      "path": "data/siteMetadata.js",
-      "accessCount": 3,
-      "lastAccessed": 1788595408484,
-      "type": "file"
-    },
-    {
-      "path": "data/authors/default.mdx",
       "accessCount": 2,
-      "lastAccessed": 1788595540085,
-      "type": "file"
-    },
-    {
-      "path": ".claude/launch.json",
-      "accessCount": 2,
-      "lastAccessed": 1788595856795,
-      "type": "file"
-    },
-    {
-      "path": "data/blog/TIL/2025-02/Race_Condition_분석과_테스트_기반_검증.mdx",
-      "accessCount": 1,
-      "lastAccessed": 1788588901375,
-      "type": "file"
-    },
-    {
-      "path": "public/static/images/PG_지연_그림2.png",
-      "accessCount": 1,
-      "lastAccessed": 1788593868560,
-      "type": "file"
-    },
-    {
-      "path": "components/Header.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788595407197,
-      "type": "file"
-    },
-    {
-      "path": "public/static/images/김민석.png",
-      "accessCount": 1,
-      "lastAccessed": 1788595475051,
+      "lastAccessed": 1788602019488,
       "type": "file"
     }
   ],

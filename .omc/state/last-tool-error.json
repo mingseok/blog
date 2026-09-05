@@ -1,7 +1,0 @@
-{
-  "tool_name": "mcp__Claude_Browser__preview_start",
-  "tool_input_preview": "{\"name\":\"blog-dev\"}",
-  "error": "Command not found: `yarn`. Check the `command`/`runtimeExecutable` field in .claude/launch.json and make sure it's installed and on PATH.",
-  "timestamp": "2026-09-05T08:10:28.181Z",
-  "retry_count": 1
-}
