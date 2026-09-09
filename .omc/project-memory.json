@@ -165,9 +165,15 @@
   },
   "hotPaths": [
     {
+      "path": "data/blog/TIL/2026-09/승인_응답_직후_서버가_죽으면_돈은_나갔는데_주문은_어떻게_되나.mdx",
+      "accessCount": 26,
+      "lastAccessed": 1788967870308,
+      "type": "file"
+    },
+    {
       "path": "data/blog/TIL/2026-09/새벽_갱신_배치가_느리거나_자정을_넘길_때_구독_결제는_어떻게_되나.mdx",
-      "accessCount": 7,
-      "lastAccessed": 1788949311242,
+      "accessCount": 10,
+      "lastAccessed": 1788967294585,
       "type": "file"
     },
     {
@@ -180,6 +186,12 @@
       "path": "public/static/images/갱신배치_1.png",
       "accessCount": 2,
       "lastAccessed": 1788949692280,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/서버kill_2.png",
+      "accessCount": 2,
+      "lastAccessed": 1788967878520,
       "type": "file"
     },
     {
