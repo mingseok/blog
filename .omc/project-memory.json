@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1788886609018,
+  "lastScanned": 1789001882704,
   "projectRoot": "/Users/kimminseok/IdeaProjects/blog",
   "techStack": {
     "languages": [
@@ -84,28 +84,28 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 9,
-      "lastAccessed": 1788886609000,
+      "lastAccessed": 1789001882689,
       "keyFiles": ["Main.tsx", "layout.tsx", "not-found.tsx", "page.tsx", "robots.ts"]
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
       "fileCount": 19,
-      "lastAccessed": 1788886609003,
+      "lastAccessed": 1789001882692,
       "keyFiles": ["Card.tsx", "Comments.tsx", "Footer.tsx", "Header.tsx", "Image.tsx"]
     },
     "css": {
       "path": "css",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1788886609004,
+      "lastAccessed": 1789001882692,
       "keyFiles": ["prism.css", "tailwind.css"]
     },
     "data": {
       "path": "data",
       "purpose": "Data files",
       "fileCount": 5,
-      "lastAccessed": 1788886609005,
+      "lastAccessed": 1789001882692,
       "keyFiles": [
         "headerNavLinks.ts",
         "logo.svg",
@@ -118,14 +118,14 @@
       "path": "faq",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1788886609006,
+      "lastAccessed": 1789001882692,
       "keyFiles": ["custom-mdx-component.md", "customize-kbar-search.md"]
     },
     "layouts": {
       "path": "layouts",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1788886609007,
+      "lastAccessed": 1789001882692,
       "keyFiles": [
         "AuthorLayout.tsx",
         "ListLayout.tsx",
@@ -138,48 +138,78 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 2,
-      "lastAccessed": 1788886609008,
+      "lastAccessed": 1789001882692,
       "keyFiles": ["feed.xml", "search.json"]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1788886609010,
+      "lastAccessed": 1789001882693,
       "keyFiles": ["postbuild.mjs", "rss.mjs"]
     },
     "app/lib": {
       "path": "app/lib",
       "purpose": "Library code",
       "fileCount": 1,
-      "lastAccessed": 1788886609011,
+      "lastAccessed": 1789001882693,
       "keyFiles": ["observer.ts"]
     },
     "public/static": {
       "path": "public/static",
       "purpose": "Static files",
       "fileCount": 0,
-      "lastAccessed": 1788886609014,
+      "lastAccessed": 1789001882694,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
+      "path": "data/blog/TIL/2026-09/PG가_답하지_않을_때_카드_취소_알림은_10초_안에_처리되나.mdx",
+      "accessCount": 82,
+      "lastAccessed": 1789034924350,
+      "type": "file"
+    },
+    {
       "path": "data/blog/TIL/2026-09/승인_응답_직후_서버가_죽으면_돈은_나갔는데_주문은_어떻게_되나.mdx",
-      "accessCount": 26,
-      "lastAccessed": 1788967870308,
+      "accessCount": 33,
+      "lastAccessed": 1789033007636,
       "type": "file"
     },
     {
       "path": "data/blog/TIL/2026-09/새벽_갱신_배치가_느리거나_자정을_넘길_때_구독_결제는_어떻게_되나.mdx",
-      "accessCount": 10,
-      "lastAccessed": 1788967294585,
+      "accessCount": 15,
+      "lastAccessed": 1789033040945,
       "type": "file"
     },
     {
       "path": "data/blog/TIL/2026-09/PG_지연과_무응답에서_결제_승인을_지키는_방법.mdx",
-      "accessCount": 7,
-      "lastAccessed": 1788949317501,
+      "accessCount": 13,
+      "lastAccessed": 1789033005146,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_1.png",
+      "accessCount": 5,
+      "lastAccessed": 1789032728897,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_4.png",
+      "accessCount": 3,
+      "lastAccessed": 1789032728396,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_1b.png",
+      "accessCount": 3,
+      "lastAccessed": 1789032762692,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_7.png",
+      "accessCount": 3,
+      "lastAccessed": 1789032923015,
       "type": "file"
     },
     {
@@ -192,6 +222,12 @@
       "path": "public/static/images/서버kill_2.png",
       "accessCount": 2,
       "lastAccessed": 1788967878520,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_6.png",
+      "accessCount": 2,
+      "lastAccessed": 1789032792163,
       "type": "file"
     },
     {
@@ -216,6 +252,24 @@
       "path": "public/static/images/갱신배치_8b.png",
       "accessCount": 1,
       "lastAccessed": 1788949597092,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_3.png",
+      "accessCount": 1,
+      "lastAccessed": 1789031818454,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_5.png",
+      "accessCount": 1,
+      "lastAccessed": 1789031818896,
+      "type": "file"
+    },
+    {
+      "path": "public/static/images/웹훅_2.png",
+      "accessCount": 1,
+      "lastAccessed": 1789031832942,
       "type": "file"
     }
   ],
