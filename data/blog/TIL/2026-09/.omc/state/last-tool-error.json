@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd ~/IdeaProjects/blog/data/blog/TIL/2026-09/ && echo \\\"--- 나머지 글 정리 표에 분수 있나 ---\\\" && for f in 새벽*.mdx PG가*.mdx 승인*.mdx; do printf \\\"%s : \\\" \\\"$f\\\"; awk '/^## 정리/{f=1} f&&/\\\\|/' \\\"$f\\\" | ...",
+  "error": "Exit code 1\n--- 나머지 글 정리 표에 분수 있나 ---\n새벽_갱신_배치가_느리거나_자정을_넘길_때_구독_결제는_어떻게_되나.mdx : 0\nPG가_답하지_않을_때_카드_취소_알림은_10초_안에_처리되나.mdx : 0\n승인_응답_직후_서버가_죽으면_돈은_나갔는데_주문은_어떻게_되나.mdx : 0",
+  "timestamp": "2026-09-17T06:39:52.014Z",
+  "retry_count": 1
+}

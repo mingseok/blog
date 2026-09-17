@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1789451058592,
+  "lastScanned": 1789635180347,
   "projectRoot": "/Users/kimminseok/IdeaProjects/blog",
   "techStack": {
     "languages": [
@@ -84,28 +84,28 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 9,
-      "lastAccessed": 1789451058579,
+      "lastAccessed": 1789635180333,
       "keyFiles": ["Main.tsx", "layout.tsx", "not-found.tsx", "page.tsx", "robots.ts"]
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
       "fileCount": 19,
-      "lastAccessed": 1789451058581,
+      "lastAccessed": 1789635180333,
       "keyFiles": ["Card.tsx", "Comments.tsx", "Footer.tsx", "Header.tsx", "Image.tsx"]
     },
     "css": {
       "path": "css",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1789451058582,
+      "lastAccessed": 1789635180335,
       "keyFiles": ["prism.css", "tailwind.css"]
     },
     "data": {
       "path": "data",
       "purpose": "Data files",
       "fileCount": 5,
-      "lastAccessed": 1789451058582,
+      "lastAccessed": 1789635180336,
       "keyFiles": [
         "headerNavLinks.ts",
         "logo.svg",
@@ -118,14 +118,14 @@
       "path": "faq",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1789451058582,
+      "lastAccessed": 1789635180336,
       "keyFiles": ["custom-mdx-component.md", "customize-kbar-search.md"]
     },
     "layouts": {
       "path": "layouts",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1789451058582,
+      "lastAccessed": 1789635180336,
       "keyFiles": [
         "AuthorLayout.tsx",
         "ListLayout.tsx",
@@ -138,36 +138,36 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 2,
-      "lastAccessed": 1789451058582,
+      "lastAccessed": 1789635180336,
       "keyFiles": ["feed.xml", "search.json"]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1789451058583,
+      "lastAccessed": 1789635180336,
       "keyFiles": ["postbuild.mjs", "rss.mjs"]
     },
     "app/lib": {
       "path": "app/lib",
       "purpose": "Library code",
       "fileCount": 1,
-      "lastAccessed": 1789451058583,
+      "lastAccessed": 1789635180336,
       "keyFiles": ["observer.ts"]
     },
     "public/static": {
       "path": "public/static",
       "purpose": "Static files",
       "fileCount": 0,
-      "lastAccessed": 1789451058584,
+      "lastAccessed": 1789635180337,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
       "path": "data/blog/TIL/2026-09/PG_지연과_무응답에서_결제_승인을_지키는_방법.mdx",
-      "accessCount": 46,
-      "lastAccessed": 1789547551594,
+      "accessCount": 47,
+      "lastAccessed": 1789627186164,
       "type": "file"
     },
     {
@@ -186,6 +186,12 @@
       "path": "data/blog/TIL/2026-09/승인_응답_직후_서버가_죽으면_돈은_나갔는데_주문은_어떻게_되나.mdx",
       "accessCount": 11,
       "lastAccessed": 1789547468324,
+      "type": "file"
+    },
+    {
+      "path": "data/blog/TIL/2026-09/서버_한_대가_죽거나_배포할_때_서비스는_멈추지_않나.mdx",
+      "accessCount": 1,
+      "lastAccessed": 1789630448818,
       "type": "file"
     }
   ],
