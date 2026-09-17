@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__Claude_Browser__javascript_tool",
+  "tool_input_preview": "{\"action\":\"javascript_exec\",\"text\":\"location.reload(); await new Promise(r=>setTimeout(r,4000));\\nconst a=document.querySelector('article')||document.querySelector('main');\\nconst imgs=[...a.querySele...",
+  "error": "No preview is open. Use `preview_start` or `navigate` with {\"url\": \"https://…\"} to open a browser tab at a URL, or `preview_start` with {\"name\": \"…\"} to start a dev server from .claude/launch.json.",
+  "timestamp": "2026-09-17T09:23:15.180Z",
+  "retry_count": 1
+}
